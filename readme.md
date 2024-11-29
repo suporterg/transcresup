@@ -1,8 +1,8 @@
-## Conversão Fluxo N8N para Python (FastAPI) com Async
+## Conversão Fluxo de Transcrição e Resumo de Audios do N8N para Python usando FastAPI
 
 ![Fluxo N8N para Python](./fluxo.png)
 
-### Setup
+### Setup Local
 ```bash
 # Linux ou Mac
 virtualenv venv
