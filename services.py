@@ -84,7 +84,7 @@ async def transcribe_audio(audio_file):
                 result = await response.json()
                 message = result.get("text", "")
 
-                if len(message) > 600:
+                if len(message) > 1000:
                     is_summary = True
                     message = await summarize_text_if_needed(message)
 
