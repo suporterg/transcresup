@@ -59,7 +59,7 @@ async def transcreve_audios(request: Request):
         )
 
         # Formatar o conteúdo da mensagem
-        summary_message = f"{header_message}{transcription_text}"
+        summary_message = f"{header_message}{transcription_text}\n\n*Impacte AI* Premium Services"
 
         # Enviar o resumo transcrito de volta via WhatsApp
 
