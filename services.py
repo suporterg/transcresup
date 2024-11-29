@@ -8,6 +8,9 @@ from fastapi import HTTPException
 # Carregar variáveis do .env
 load_dotenv()
 
+# Função para obter as variáveis
+def get_env_var(var_name, default=None):
+    return os.getenv(var_name, default)
 
 # Função assíncrona para converter base64 em arquivo temporário
 async def convert_base64_to_file(base64_data):
@@ -25,7 +28,7 @@ async def summarize_text_if_needed(text):
 
     url_completions = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
+        "Authorization": f"Bearer {get_env_var('GROQ_API_KEY')}",
         "Content-Type": "application/json",
     }
 
@@ -66,7 +69,7 @@ async def summarize_text_if_needed(text):
 # Função assíncrona para transcrever o áudio
 async def transcribe_audio(audio_file):
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
-    headers = {"Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}"}
+    headers = {"Authorization": f"Bearer {get_env_var('GROQ_API_KEY')}"}
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
