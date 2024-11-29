@@ -2,3 +2,4 @@
 docker-composer.yaml
 docker-compose.yaml
 .gitignore
+.git
