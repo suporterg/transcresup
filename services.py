@@ -46,7 +46,7 @@ async def summarize_text_if_needed(text):
                     texto pelo whatsapp: {text}""",
             }
         ],
-        "model": "llama-3.2-90b-text-preview",
+        "model": "llama-3.2-90b-vision-preview",
     }
 
     async with aiohttp.ClientSession() as session:
