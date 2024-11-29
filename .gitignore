@@ -1,3 +1,4 @@
 .env
 *.pyc
 docker-composer.yaml
+docker-compose.yaml
