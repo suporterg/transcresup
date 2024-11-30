@@ -9,12 +9,15 @@ from models import WebhookRequest
 import aiohttp
 from dotenv import load_dotenv
 import os
+from services import get_env_var
 
 # Carregar variáveis do .env
 load_dotenv()
 
 app = FastAPI()
 
+# Obter a mensagem do negócio da variável de ambiente
+BUSINESS_MESSAGE = get_env_var("BUSINESS_MESSAGE", "*Impacte AI* Premium Services")
 
 @app.post("/transcreve-audios")
 async def transcreve_audios(request: Request):
@@ -59,7 +62,7 @@ async def transcreve_audios(request: Request):
         )
 
         # Formatar o conteúdo da mensagem
-        summary_message = f"{header_message}{transcription_text}\n\n*Impacte AI* Premium Services"
+        summary_message = f"{header_message}{transcription_text}\n\n{BUSINESS_MESSAGE}"
 
         # Enviar o resumo transcrito de volta via WhatsApp
 
