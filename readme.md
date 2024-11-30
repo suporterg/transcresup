@@ -22,6 +22,10 @@ uvicorn main:app --host 0.0.0.0 --port 8005
 ```
 ### Endpoint de uso para inserir na sua Evolution api como webhook
 ```bash
+https://transcricaoaudio.seudominio.com.br/transcreve-audios
+```
+### Em caso de uso local
+```bash
 curl --location 'http://127.0.0.1:8005/transcreve-audios'
 ```
 ### Para instalar com Docker Swarm e Traefik use o .yaml abaixo como referencia
