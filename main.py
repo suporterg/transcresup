@@ -18,6 +18,7 @@ app = FastAPI()
 
 # Obter a mensagem do negócio da variável de ambiente
 BUSINESS_MESSAGE = get_env_var("BUSINESS_MESSAGE", "*Impacte AI* Premium Services")
+PROCESS_GROUP_MESSAGES = get_env_var("PROCESS_GROUP_MESSAGES", "false").lower() == "true"
 
 @app.post("/transcreve-audios")
 async def transcreve_audios(request: Request):
@@ -37,8 +38,8 @@ async def transcreve_audios(request: Request):
         if from_me:
             return {"message": "Mensagem enviada por mim, sem operação"}
 
-        # Verifica se a mensagem é de um grupo
-        if "@g.us" in remote_jid:
+        # Decidir se processa mensagens de grupos
+        if "@g.us" in remote_jid and not PROCESS_GROUP_MESSAGES:
             return {"message": "Mensagem enviada por um grupo, sem operação"}
 
         if "base64" not in body:

@@ -46,6 +46,7 @@ services:
       WHATSAPP_INSTANCE: "substitua_sua_instancia_aqui" #coloque nome da sua instancia evolution aqui
       GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
+      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
     deploy:
       mode: replicated
       replicas: 1
