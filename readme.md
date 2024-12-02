@@ -109,6 +109,61 @@ networks:
 ```
 ---
 
+## 🐳 **Rodando com Docker Compose (Sem Traefik)**
+
+Se você prefere rodar a aplicação em um ambiente simples, sem usar o Traefik para gerenciamento de subdomínios, siga as orientações abaixo.
+
+### **1. Usando `docker run` diretamente**
+
+Execute o seguinte comando para rodar o contêiner:
+
+```bash
+docker run -d \
+  --name transcricaoaudio \
+  -p 8005:8005 \
+  -e Uvicorn_port=8005 \
+  -e Uvicorn_host=0.0.0.0 \
+  -e Uvicorn_reload="true" \
+  -e Uvicorn_workers=1 \
+  -e WHATSAPP_API_KEY="substitua_sua_chave_aqui" \
+  -e WHATSAPP_API_URL="https://suaevolutionapi.sedominio.com.br/" \
+  -e WHATSAPP_INSTANCE="substitua_sua_instancia_aqui" \
+  -e GROQ_API_KEY="substitua_sua_chave_GROQ_aqui" \
+  -e BUSINESS_MESSAGE="substitua_sua_mensagem_de_servico_aqui" \
+  -e PROCESS_GROUP_MESSAGES="false" \
+  impacteai/transcrevezap:latest
+```
+Usando `docker-compose.yaml`
+Crie um arquivo chamado `docker-compose.yaml` com o seguinte conteúdo:
+```bash
+version: "3.7"
+
+services:
+  transcricaoaudio:
+    image: impacteai/transcrevezap:latest
+    ports:
+      - 8005:8005
+    environment:
+      Uvicorn_port: 8005
+      Uvicorn_host: 0.0.0.0
+      Uvicorn_reload: "true"
+      Uvicorn_workers: 1
+      WHATSAPP_API_KEY: "substitua_sua_chave_aqui" # Coloque sua chave API Evolution aqui
+      WHATSAPP_API_URL: "https://suaevolutionapi.sedominio.com.br/" # URL da sua instância Evolution
+      WHATSAPP_INSTANCE: "substitua_sua_instancia_aqui" # Nome da sua instância Evolution
+      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" # Chave da API GROQ
+      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" # Mensagem adicionada ao final da transcrição
+      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
+```
+Para rodar com Docker Compose, execute:
+```bash
+docker-compose up -d
+```
+ - Acessando o serviço
+    - Após rodar a aplicação, acesse:
+        http://127.0.0.1:8005 para ambiente local.
+        Você pode substituir 127.0.0.1 pelo IP ou domínio público, se configurado.
+---
 ## 📖 **Configuração das Variáveis de Ambiente**
 Ao usar o Docker Compose, configure as seguintes variáveis de ambiente no arquivo `docker-compose.yaml`:
 
