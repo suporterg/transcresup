@@ -122,3 +122,11 @@ Ao usar o Docker Compose, configure as seguintes variáveis de ambiente no arqui
 | `PROCESS_GROUP_MESSAGES` | Define se mensagens enviadas em grupos devem ser processadas (`true`) ou ignoradas (`false`). |
 
 ---
+
+## 📄 **Licença**
+
+Este projeto está licenciado sob a Licença MIT. Isso significa que você pode usar, modificar e distribuir este software livremente, desde que mantenha o aviso de copyright e a licença original em todas as cópias ou partes substanciais do software.
+
+Você pode consultar o texto completo da licença no arquivo [LICENSE](LICENSE).
+
+---
