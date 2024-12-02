@@ -1,3 +1,5 @@
 .env
 *.pyc
 docker-composer.yaml
+GPT.postman_collection.json
+.venv/
