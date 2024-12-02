@@ -42,7 +42,7 @@ Rode o comando abaixo para iniciar o servidor:
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8005
 ```
-Acesse o serviço localmente em: http://127.0.0.1:8005.
+Acesse o serviço localmente em: `http://127.0.0.1:8005/transcreve-audios`. Insira este endereço na Evolution API para consumir as transcrições.
 
 ### 🌐 Configuração de Webhook na Evolution API
 Endpoint para Webhook
@@ -161,7 +161,7 @@ docker-compose up -d
 ```
  - Acessando o serviço
     - Após rodar a aplicação, acesse:
-        http://127.0.0.1:8005 para ambiente local.
+        http://127.0.0.1:8005/transcreve-audios para ambiente local, inserindo este endereço na Evolution API.
         Você pode substituir 127.0.0.1 pelo IP ou domínio público, se configurado.
 ---
 ## 📖 **Configuração das Variáveis de Ambiente**
