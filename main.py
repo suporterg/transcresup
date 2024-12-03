@@ -7,78 +7,72 @@ from services import (
 )
 from models import WebhookRequest
 import aiohttp
-from dotenv import load_dotenv
-import os
-from services import get_env_var
-
-# Carregar variáveis do .env
-load_dotenv()
+from config import settings, logger
 
 app = FastAPI()
-
-# Obter a mensagem do negócio da variável de ambiente
-BUSINESS_MESSAGE = get_env_var("BUSINESS_MESSAGE", "*Impacte AI* Premium Services")
-PROCESS_GROUP_MESSAGES = get_env_var("PROCESS_GROUP_MESSAGES", "false").lower() == "true"
 
 @app.post("/transcreve-audios")
 async def transcreve_audios(request: Request):
     try:
-        # Receber o corpo do webhook
+        logger.info("Iniciando processamento de áudio")
         body = await request.json()
+        
+        if settings.DEBUG_MODE:
+            logger.debug(f"Payload recebido: {body}")
 
-        # Extraindo informações necessárias do JSON
+        # Extraindo informações
         server_url = body["server_url"]
-        instance = body["instance"]  # os.getenv("WHATSAPP_INSTANCE")
-        apikey = body["apikey"]  # os.getenv("WHATSAPP_API_KEY")
+        instance = body.get("instance", settings.WHATSAPP_INSTANCE)
+        apikey = body.get("apikey", settings.WHATSAPP_API_KEY)
         audio_key = body["data"]["key"]["id"]
         from_me = body["data"]["key"]["fromMe"]
         remote_jid = body["data"]["key"]["remoteJid"]
 
-        # Verificar se a mensagem foi enviada por mim
         if from_me:
+            logger.info("Mensagem enviada pelo próprio usuário, ignorando")
             return {"message": "Mensagem enviada por mim, sem operação"}
 
-        # Decidir se processa mensagens de grupos
-        if "@g.us" in remote_jid and not PROCESS_GROUP_MESSAGES:
+        if "@g.us" in remote_jid and not settings.PROCESS_GROUP_MESSAGES:
+            logger.info("Mensagem de grupo ignorada conforme configuração")
             return {"message": "Mensagem enviada por um grupo, sem operação"}
 
-        if "base64" not in body:
-
-            # Pega o áudio em Base64
-            base64_audio = await get_audio_base64(
-                server_url, instance, apikey, audio_key
-            )
-
+        # Verificar se temos mediaUrl ou precisamos pegar o base64
+        if "mediaUrl" in body["data"]["message"]:
+            audio_source = body["data"]["message"]["mediaUrl"]
+            logger.debug(f"Usando mediaUrl: {audio_source}")
         else:
-            base64_audio = body["data"]["message"]["base64"]
+            logger.debug("MediaUrl não encontrada, obtendo áudio via base64")
+            base64_audio = await get_audio_base64(server_url, instance, apikey, audio_key)
+            audio_source = await convert_base64_to_file(base64_audio)
+            logger.debug(f"Áudio convertido e salvo em: {audio_source}")
 
-        # Converter Base64 para arquivo de áudio
-        audio_file = await convert_base64_to_file(base64_audio)
-
-        # Transcrever o áudio usando o modelo da API externa
-        transcription_text, is_summary = await transcribe_audio(audio_file)
+        # Transcrever o áudio
+        transcription_text, is_summary = await transcribe_audio(audio_source)
 
         header_message = (
             "*Resumo do áudio:*\n\n" if is_summary else "*Transcrição desse áudio:*\n\n"
         )
 
         # Formatar o conteúdo da mensagem
-        summary_message = f"{header_message}{transcription_text}\n\n{BUSINESS_MESSAGE}"
+        summary_message = f"{header_message}{transcription_text}\n\n{settings.BUSINESS_MESSAGE}"
+        logger.debug(f"Mensagem formatada: {summary_message[:100]}...")
 
         # Enviar o resumo transcrito de volta via WhatsApp
-
         await send_message_to_whatsapp(
             server_url,
             instance,
             apikey,
             summary_message,
-            body["data"]["key"]["remoteJid"],
+            remote_jid,
             audio_key,
         )
 
+        logger.info("Áudio processado e resposta enviada com sucesso")
         return {"message": "Áudio transcrito e resposta enviada com sucesso"}
 
     except Exception as e:
+        logger.error(f"Erro ao processar áudio: {str(e)}", exc_info=settings.DEBUG_MODE)
         raise HTTPException(
-            status_code=500, detail=f"Erro ao processar a requisição: {str(e)}"
+            status_code=500, 
+            detail=f"Erro ao processar a requisição: {str(e)}"
         )
