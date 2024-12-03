@@ -27,6 +27,11 @@ async def transcreve_audios(request: Request):
         audio_key = body["data"]["key"]["id"]
         from_me = body["data"]["key"]["fromMe"]
         remote_jid = body["data"]["key"]["remoteJid"]
+        message_type = body["data"]["messageType"]
+        
+        if "audioMessage" not in message_type:
+            logger.info("Mensagem recebida não é um áudio, ignorando")
+            return {"message": "Mensagem recebida não é um áudio"}
 
         if from_me:
             logger.info("Mensagem enviada pelo próprio usuário, ignorando")
