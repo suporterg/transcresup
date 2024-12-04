@@ -4,7 +4,8 @@
 
 Este projeto permite transcrever e resumir áudios enviados pelo WhatsApp usando inteligência artificial e integração com APIs. Ideal para automatizar o processamento de mensagens de áudio, oferecendo um resumo claro e prático.
 
-Contato de email: `impacte.ai@gmail.com`
+Contato de email: `impacte.ai@gmail.com
+([ACESSE NOSSO SITE](https://impacte.ai/))
 ---
 
 ## 📋 **Pré-requisitos**
