@@ -39,7 +39,6 @@ Copie o arquivo `.env.example` para `.env` e configure suas variáveis:
 ```bash
 cp .env.example .env
 ```
-
 ## 📖 **Configuração Detalhada das Variáveis**
 
 ### Variáveis Essenciais
@@ -69,6 +68,10 @@ cp .env.example .env
 ### Execução Local
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8005
+```
+### Endpoint para inserir no webhook da Evolution API para consumir o serviço
+```bash
+http://127.0.0.1:8005/transcreve-audios
 ```
 
 ### 🐳 Docker Compose Simples
@@ -140,6 +143,11 @@ networks:
     name: suarededocker #troque pela sua rede do docker
 ```
 
+### Endpoint para inserir no webhook da Evolution API para consumir o serviço
+```bash
+https://transcricaoaudio.seudominio.com.br/transcreve-audios
+
+```
 ## 🔧 **Configuração do Traefik**
 
 Para usar com Traefik, certifique-se de:
