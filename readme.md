@@ -12,7 +12,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 - Python 3.10+ instalado ([Download](https://www.python.org/downloads/))
 - Docker e Docker Compose instalados ([Instruções](https://docs.docker.com/get-docker/))
 - Uma conta Evolution API com chave válida
-- Uma conta GROQ API com chave válida (começa com 'gsk_')
+- Uma conta GROQ API com chave válida (começa com 'gsk_') ([Crie sua CONTA](https://console.groq.com/login))
 
 ---
 
