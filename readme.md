@@ -46,9 +46,6 @@ cp .env.example .env
 
 | Variável               | Descrição                                                | Obrigatória | Exemplo                                                    |
 |-----------------------|----------------------------------------------------------|-------------|----------------------------------------------------------|
-| `WHATSAPP_API_KEY`    | Chave da API Evolution para autenticação                 | Sim         | `429683C4C977415CAAFCCE10F7D57E11`                        |
-| `WHATSAPP_API_URL`    | URL base da sua instância Evolution API                  | Sim         | `https://api.evolution.com`                                |
-| `WHATSAPP_INSTANCE`   | Nome da instância configurada na Evolution API           | Sim         | `instance1`                                                |
 | `GROQ_API_KEY`        | Chave da API GROQ (deve começar com 'gsk_')             | Sim         | `gsk_abc123...`                                           |
 
 ### Variáveis de Personalização
@@ -83,9 +80,6 @@ services:
     ports:
       - 8005:8005
     environment:
-      WHATSAPP_API_KEY: "sua_chave_aqui"
-      WHATSAPP_API_URL: "https://sua_url_aqui"
-      WHATSAPP_INSTANCE: "sua_instancia"
       GROQ_API_KEY: "sua_chave_groq"
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui"
       PROCESS_GROUP_MESSAGES: "false"
@@ -102,9 +96,6 @@ services:
     networks:
       - suarededocker
     environment:
-      WHATSAPP_API_KEY: "sua_chave_aqui"
-      WHATSAPP_API_URL: "https://sua_url_aqui"
-      WHATSAPP_INSTANCE: "sua_instancia"
       GROQ_API_KEY: "sua_chave_groq"
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui"
       PROCESS_GROUP_MESSAGES: "false"
