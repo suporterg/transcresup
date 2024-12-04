@@ -51,15 +51,6 @@ class Settings:
         self.DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
         logger.debug(f"DEBUG_MODE configurado como: {self.DEBUG_MODE}")
         
-        self.WHATSAPP_INSTANCE = os.getenv('WHATSAPP_INSTANCE')
-        logger.debug(f"WHATSAPP_INSTANCE configurada como: {self.WHATSAPP_INSTANCE}")
-        
-        self.WHATSAPP_API_KEY = os.getenv('WHATSAPP_API_KEY')
-        logger.debug(f"WHATSAPP_API_KEY configurada: {'Presente' if self.WHATSAPP_API_KEY else 'Ausente'}")
-        
-        self.WHATSAPP_API_URL = os.getenv('WHATSAPP_API_URL')
-        logger.debug(f"WHATSAPP_API_URL configurada como: {self.WHATSAPP_API_URL}")
-        
         self.GROQ_API_KEY = os.getenv('GROQ_API_KEY')
         if self.GROQ_API_KEY:
             masked_key = f"{self.GROQ_API_KEY[:10]}...{self.GROQ_API_KEY[-4:]}"
@@ -86,15 +77,6 @@ class Settings:
             validation_errors.append("GROQ_API_KEY não está definida")
         elif not self.GROQ_API_KEY.startswith('gsk_'):
             validation_errors.append("GROQ_API_KEY inválida: deve começar com 'gsk_'")
-            
-        if not self.WHATSAPP_API_KEY:
-            validation_errors.append("WHATSAPP_API_KEY não está definida")
-            
-        if not self.WHATSAPP_API_URL:
-            validation_errors.append("WHATSAPP_API_URL não está definida")
-            
-        if not self.WHATSAPP_INSTANCE:
-            validation_errors.append("WHATSAPP_INSTANCE não está definida")
 
         if validation_errors:
             for error in validation_errors:

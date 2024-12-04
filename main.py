@@ -22,8 +22,8 @@ async def transcreve_audios(request: Request):
 
         # Extraindo informações
         server_url = body["server_url"]
-        instance = body.get("instance", settings.WHATSAPP_INSTANCE)
-        apikey = body.get("apikey", settings.WHATSAPP_API_KEY)
+        instance = body["instance"]
+        apikey = body["apikey"]
         audio_key = body["data"]["key"]["id"]
         from_me = body["data"]["key"]["fromMe"]
         remote_jid = body["data"]["key"]["remoteJid"]

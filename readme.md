@@ -46,9 +46,6 @@ cp .env.example .env
 
 | Variável               | Descrição                                                | Obrigatória | Exemplo                                                    |
 |-----------------------|----------------------------------------------------------|-------------|----------------------------------------------------------|
-| `WHATSAPP_API_KEY`    | Chave da API Evolution para autenticação                 | Sim         | `429683C4C977415CAAFCCE10F7D57E11`                        |
-| `WHATSAPP_API_URL`    | URL base da sua instância Evolution API                  | Sim         | `https://api.evolution.com`                                |
-| `WHATSAPP_INSTANCE`   | Nome da instância configurada na Evolution API           | Sim         | `instance1`                                                |
 | `GROQ_API_KEY`        | Chave da API GROQ (deve começar com 'gsk_')             | Sim         | `gsk_abc123...`                                           |
 
 ### Variáveis de Personalização
@@ -87,9 +84,6 @@ services:
       Uvicorn_host: 0.0.0.0
       Uvicorn_reload: "true"
       Uvicorn_workers: 1
-      WHATSAPP_API_KEY: "substitua_sua_chave_aqui" #coloque sua api key evolution aqui
-      WHATSAPP_API_URL: "https://suaevolutionapi.sedominio.com.br/" #coloque sua url evolution aqui
-      WHATSAPP_INSTANCE: "substitua_sua_instancia_aqui" #coloque nome da sua instancia evolution aqui
       GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
       PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
@@ -114,9 +108,6 @@ services:
       Uvicorn_host: 0.0.0.0
       Uvicorn_reload: "true"
       Uvicorn_workers: 1
-      WHATSAPP_API_KEY: "substitua_sua_chave_aqui" #coloque sua api key evolution aqui
-      WHATSAPP_API_URL: "https://suaevolutionapi.sedominio.com.br/" #coloque sua url evolution aqui
-      WHATSAPP_INSTANCE: "substitua_sua_instancia_aqui" #coloque nome da sua instancia evolution aqui
       GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
       PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
