@@ -80,9 +80,13 @@ services:
     ports:
       - 8005:8005
     environment:
-      GROQ_API_KEY: "sua_chave_groq"
-      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui"
-      PROCESS_GROUP_MESSAGES: "false"
+      Uvicorn_port: 8005
+      Uvicorn_host: 0.0.0.0
+      Uvicorn_reload: "true"
+      Uvicorn_workers: 1
+      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
+      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
+      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
       DEBUG_MODE: "false"
       LOG_LEVEL: "INFO"
 ```
@@ -90,16 +94,25 @@ services:
 ### 🌟 Docker Swarm com Traefik
 ```yaml
 version: "3.7"
+
 services:
   transcricaoaudio:
     image: impacteai/transcrevezap:latest
+    build: .
     networks:
-      - suarededocker
+      - suarededocker #troque pela sua rede do docker
+    ports:
+      - 8005:8005
     environment:
-      GROQ_API_KEY: "sua_chave_groq"
-      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui"
-      PROCESS_GROUP_MESSAGES: "false"
+      Uvicorn_port: 8005
+      Uvicorn_host: 0.0.0.0
+      Uvicorn_reload: "true"
+      Uvicorn_workers: 1
+      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
+      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
+      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
       DEBUG_MODE: "false"
+      LOG_LEVEL: "INFO"
     deploy:
       mode: replicated
       replicas: 1
@@ -108,18 +121,23 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.transcricaoaudio.rule=Host(`transcricaoaudio.seudominio.com.br`)
+        - traefik.http.routers.transcricaoaudio.rule=Host(`transcricaoaudio.seudominio.com.br`) #coloque seu subdominio apontado aqui
         - traefik.http.routers.transcricaoaudio.entrypoints=websecure
         - traefik.http.routers.transcricaoaudio.tls.certresolver=letsencryptresolver
         - traefik.http.services.transcricaoaudio.loadbalancer.server.port=8005
+        - traefik.http.services.transcricaoaudio.loadbalancer.passHostHeader=true
+        - traefik.http.routers.transcricaoaudio.service=transcricaoaudio
+        - traefik.http.middlewares.traefik-compress.compress=true
+        - traefik.http.routers.transcricaoaudio.middlewares=traefik-compress
       resources:
         limits:
           cpus: "1"
           memory: 1024M
 
 networks:
-  suarededocker:
+  suarededocker: #troque pela sua rede do docker
     external: true
+    name: suarededocker #troque pela sua rede do docker
 ```
 
 ## 🔧 **Configuração do Traefik**
