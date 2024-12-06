@@ -175,7 +175,6 @@ Se encontrar problemas:
 Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
 ---
-### SE QUISER CONTRIBUIR COM O PROJETO, FAÇA O PIX NA CHAVE ABAIXO COPIA E COLA
-```bash
-00020126390014br.gov.bcb.pix0117fab1nnn@gmail.com5204000053039865802BR5925FABIO WILLIAN C P CAVALCA6008BRASILIA62070503***63048F47
-```
+### SE QUISER CONTRIBUIR COM O PROJETO, FAÇA O PIX NO QR CODE
+![PIX](./pix.jpeg)
+---
