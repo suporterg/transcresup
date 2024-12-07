@@ -4,7 +4,7 @@
 
 Este projeto permite transcrever e resumir áudios enviados pelo WhatsApp usando inteligência artificial e integração com APIs. Ideal para automatizar o processamento de mensagens de áudio, oferecendo um resumo claro e prático.
 
-Contato de email: `impacte.ai@gmail.com
+Contato de email: impacte.ai@gmail.com
 ([ACESSE NOSSO SITE](https://impacte.ai/))
 ---
 
@@ -66,7 +66,7 @@ cp .env.example .env
 ---
 
 ## 🚀 **Métodos de Execução**
-
+Usar sempre ao final do endereço definido o endpoint `/transcreve-audios` para que a API funcione.
 ### Execução Local
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8005
