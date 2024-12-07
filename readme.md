@@ -53,7 +53,8 @@ cp .env.example .env
 | Variável               | Descrição                                                | Padrão      | Exemplo                                                    |
 |-----------------------|----------------------------------------------------------|-------------|----------------------------------------------------------|
 | `BUSINESS_MESSAGE`    | Mensagem de rodapé após transcrição                      | Vazio       | `substitua_sua_mensagem_de_servico_aqui` |
-| `PROCESS_GROUP_MESSAGES` | Habilita processamento de mensagens em grupos          | `false`     | `true` ou `false`                                          |
+| `PROCESS_GROUP_MESSAGES` | Habilita processamento de mensagens em grupos          | `false`     | `true` ou `false`
+| `PROCESS_SELF_MESSAGES` | Habilita processamento de mensagens enviadas por você    | `true`     | `true` ou `false`                                                      |
 
 ### Variáveis de Debug e Log
 
