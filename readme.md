@@ -6,6 +6,8 @@ Este projeto permite transcrever e resumir áudios enviados pelo WhatsApp usando
 
 Contato de email: impacte.ai@gmail.com
 ([ACESSE NOSSO SITE](https://impacte.ai/))
+
+Nosso Grupo do Whatsapp: ([Entre no GRUPO AQUI](https://chat.whatsapp.com/L9jB1SlcmQFIVxzN71Y6KG)) 
 ---
 
 ## 📋 **Pré-requisitos**
