@@ -4,6 +4,7 @@ from services import (
     transcribe_audio,
     send_message_to_whatsapp,
     get_audio_base64,
+    summarize_text_if_needed,
 )
 from models import WebhookRequest
 import aiohttp
@@ -16,7 +17,7 @@ async def transcreve_audios(request: Request):
     try:
         logger.info("Iniciando processamento de áudio")
         body = await request.json()
-        
+
         if settings.DEBUG_MODE:
             logger.debug(f"Payload recebido: {body}")
 
@@ -28,13 +29,13 @@ async def transcreve_audios(request: Request):
         from_me = body["data"]["key"]["fromMe"]
         remote_jid = body["data"]["key"]["remoteJid"]
         message_type = body["data"]["messageType"]
-        
+
         if "audioMessage" not in message_type:
             logger.info("Mensagem recebida não é um áudio, ignorando")
             return {"message": "Mensagem recebida não é um áudio"}
 
-        if from_me:
-            logger.info("Mensagem enviada pelo próprio usuário, ignorando")
+        if from_me and not settings.PROCESS_SELF_MESSAGES:
+            logger.info("Mensagem enviada pelo próprio usuário ignorada conforme configuração")
             return {"message": "Mensagem enviada por mim, sem operação"}
 
         if "@g.us" in remote_jid and not settings.PROCESS_GROUP_MESSAGES:
@@ -52,17 +53,20 @@ async def transcreve_audios(request: Request):
             logger.debug(f"Áudio convertido e salvo em: {audio_source}")
 
         # Transcrever o áudio
-        transcription_text, is_summary = await transcribe_audio(audio_source)
+        transcription_text, _ = await transcribe_audio(audio_source)
+        summary_text = await summarize_text_if_needed(transcription_text)
 
-        header_message = (
-            "*Resumo do áudio:*\n\n" if is_summary else "*Transcrição desse áudio:*\n\n"
+        # Formatar a mensagem
+        summary_message = (
+            f"*Resumo do áudio:*\n\n"
+            f"{summary_text}\n\n"
+            f"*Transcrição do áudio:*\n\n"
+            f"{transcription_text}\n\n"
+            f"{settings.BUSINESS_MESSAGE}"
         )
-
-        # Formatar o conteúdo da mensagem
-        summary_message = f"{header_message}{transcription_text}\n\n{settings.BUSINESS_MESSAGE}"
         logger.debug(f"Mensagem formatada: {summary_message[:100]}...")
 
-        # Enviar o resumo transcrito de volta via WhatsApp
+        # Enviar a mensagem formatada via WhatsApp
         await send_message_to_whatsapp(
             server_url,
             instance,
@@ -78,6 +82,6 @@ async def transcreve_audios(request: Request):
     except Exception as e:
         logger.error(f"Erro ao processar áudio: {str(e)}", exc_info=settings.DEBUG_MODE)
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro ao processar a requisição: {str(e)}"
+            status_code=500,
+            detail=f"Erro ao processar a requisição: {str(e)}",
         )

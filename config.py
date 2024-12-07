@@ -64,6 +64,9 @@ class Settings:
         self.PROCESS_GROUP_MESSAGES = os.getenv('PROCESS_GROUP_MESSAGES', 'false').lower() == 'true'
         logger.debug(f"PROCESS_GROUP_MESSAGES configurado como: {self.PROCESS_GROUP_MESSAGES}")
         
+        self.PROCESS_SELF_MESSAGES = os.getenv('PROCESS_SELF_MESSAGES', 'false').lower() == 'true'
+        logger.debug(f"PROCESS_SELF_MESSAGES configurado como: {self.PROCESS_SELF_MESSAGES}")
+
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
         logger.debug(f"LOG_LEVEL configurado como: {self.LOG_LEVEL}")
 

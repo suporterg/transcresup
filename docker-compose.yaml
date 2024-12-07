@@ -16,6 +16,7 @@ services:
       GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
       BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
       PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
+      PROCESS_SELF_MESSAGES: "true" # Define se sua próprias mensagens devem ser processadas
       DEBUG_MODE: "false"
       LOG_LEVEL: "INFO"
     deploy:
