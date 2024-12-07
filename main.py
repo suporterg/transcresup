@@ -58,9 +58,9 @@ async def transcreve_audios(request: Request):
 
         # Formatar a mensagem
         summary_message = (
-            f"*Resumo do áudio:*\n\n"
+            f"🤖 *Resumo do áudio:*\n\n"
             f"{summary_text}\n\n"
-            f"*Transcrição do áudio:*\n\n"
+            f"🔊 *Transcrição do áudio:*\n\n"
             f"{transcription_text}\n\n"
             f"{settings.BUSINESS_MESSAGE}"
         )
