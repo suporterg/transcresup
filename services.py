@@ -45,7 +45,7 @@ async def summarize_text_if_needed(text):
                 como se você estivesse escrevendo esse resumo e enviando em 
                 texto pelo whatsapp: {text}""",
         }],
-        "model": "llama-3.2-90b-vision-preview",
+        "model": "llama-3.3-70b-versatile",
     }
 
     try:
