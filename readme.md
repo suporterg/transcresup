@@ -28,6 +28,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
    cd transcrevezap
   ```
 2. Configure o arquivo `docker-compose.yaml`:
+
 ```yaml
 version: "3.7"
 services:
@@ -53,6 +54,7 @@ services:
 volumes:
   redis_data:
 ```
+
 3. Inicie os serviços:
 ```bash
 docker-compose up -d
