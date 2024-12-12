@@ -34,6 +34,52 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Estilos CSS personalizados
+st.markdown("""
+<style>
+    .main > div {
+        padding-top: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+    }
+    .stTextInput>div>div>input, .stSelectbox>div>div>select {
+        font-size: 16px;
+    }
+    h1, h2, h3 {
+        margin-bottom: 1rem;
+    }
+    .sidebar-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 2rem;
+    }
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #000000;
+        color: #ffffff;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 14px;
+    }
+    .footer a {
+        color: #ffffff;
+        text-decoration: underline;
+    }
+    @media (max-width: 768px) {
+        .main > div {
+            padding-top: 1rem;
+        }
+        .sidebar-header {
+            font-size: 1.2rem;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Configuração do storage
 storage = StorageHandler()
 
@@ -70,7 +116,7 @@ def show_logo():
         if os.path.exists(logo_path):
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image(logo_path, width=300)  # Aumentado o tamanho para 300
+                st.image(logo_path, width=400, use_column_width=True)  # Aumentado e responsivo
         else:
             st.warning("Logo não encontrada.")
     except Exception as e:
@@ -89,13 +135,15 @@ def show_footer():
 
 def login_page():
     show_logo()
+    st.markdown("<h3 style='text-align: center; margin-bottom: 1rem; font-size: 1.2em;'>TranscreveZAP</h3>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            st.markdown("<h2 style='text-align: center;'>Login</h2>", unsafe_allow_html=True)
-            username = st.text_input('Usuário')
-            password = st.text_input('Senha', type='password')
-            if st.form_submit_button('Entrar', use_container_width=True):
+            st.markdown("<h2 style='text-align: center; margin-bottom: 1rem;'>Login</h2>", unsafe_allow_html=True)
+            username = st.text_input('Usuário', key='username')
+            password = st.text_input('Senha', type='password', key='password')
+            submit_button = st.form_submit_button('Entrar')
+            if submit_button:
                 if username == os.getenv('MANAGER_USER') and password == os.getenv('MANAGER_PASSWORD'):
                     st.session_state.authenticated = True
                     st.experimental_rerun()
@@ -207,7 +255,7 @@ def manage_settings():
     st.title("⚙️ Configurações")
     st.subheader("Configurações do Sistema")
     st.text_input("GROQ_API_KEY", value=st.session_state.settings["GROQ_API_KEY"], key="groq_api_key")
-    st.text_input("Mensagem de Boas-Vindas", value=st.session_state.settings["BUSINESS_MESSAGE"], key="business_message")
+    st.text_input("Mensagem de Serviço no Rodapé", value=st.session_state.settings["BUSINESS_MESSAGE"], key="business_message")
     st.selectbox("Processar Mensagens em Grupos", options=["true", "false"], index=["true", "false"].index(st.session_state.settings["PROCESS_GROUP_MESSAGES"]), key="process_group_messages")
     st.selectbox("Processar Mensagens Próprias", options=["true", "false"], index=["true", "false"].index(st.session_state.settings["PROCESS_SELF_MESSAGES"]), key="process_self_messages")
     if st.button("Salvar Configurações"):
