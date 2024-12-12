@@ -1,4 +1,5 @@
-# Transcrição e Resumo de Áudios no WhatsApp usando Python
+# TranscreveZAP 1.0
+## Transcrição e Resumo de Áudios no WhatsApp usando Python
 
 ![ImpacteAI](./fluxo.png)
 
@@ -83,7 +84,7 @@ http://127.0.0.1:8005/transcreve-audios
 version: "3.7"
 services:
   transcricaoaudio:
-    image: impacteai/transcrevezap:latest
+    image: impacteai/transcrevezap:1.0
     ports:
       - 8005:8005
     environment:
@@ -105,7 +106,7 @@ version: "3.7"
 
 services:
   transcricaoaudio:
-    image: impacteai/transcrevezap:latest
+    image: impacteai/transcrevezap:1.0
     build: .
     networks:
       - suarededocker #troque pela sua rede do docker
