@@ -41,6 +41,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
         environment:
           - REDIS_HOST=redis
           - REDIS_PORT=6380
+          - API_DOMAIN=seu-ip 
           - MANAGER_USER=admin
           - MANAGER_PASSWORD=sua_senha_aqui
         depends_on:
@@ -67,11 +68,10 @@ Acesse a interface de gerenciamento em http://seu-ip:8501.
 Faça login com as credenciais definidas em MANAGER_USER e MANAGER_PASSWORD.
 Na seção "Configurações", defina:
 
-GROQ_API_KEY: Sua chave da API GROQ
-BUSINESS_MESSAGE: Mensagem de rodapé após transcrição
-PROCESS_GROUP_MESSAGES: Habilitar processamento de mensagens em grupos
-PROCESS_SELF_MESSAGES: Habilitar processamento de mensagens próprias
-
+1. GROQ_API_KEY: Sua chave da API GROQ
+2. BUSINESS_MESSAGE: Mensagem de rodapé após transcrição
+3. PROCESS_GROUP_MESSAGES: Habilitar processamento de mensagens em grupos
+4. PROCESS_SELF_MESSAGES: Habilitar processamento de mensagens próprias
 
 ## 🔧 Uso
 Endpoint para Webhook da Evolution API
@@ -144,6 +144,7 @@ services:
       - UVICORN_HOST=0.0.0.0
       - UVICORN_RELOAD=true
       - UVICORN_WORKERS=1
+      - API_DOMAIN=seu.dominio.com 
       - DEBUG_MODE=false
       - LOG_LEVEL=INFO
       - MANAGER_USER=seu_usuario_admin

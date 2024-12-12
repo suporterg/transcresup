@@ -209,6 +209,24 @@ def show_statistics():
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Ainda não há dados de processamento disponíveis.")
+
+        # Adicionar informações sobre o endpoint da API
+        st.subheader("Endpoint da API")
+        api_domain = get_from_redis("API_DOMAIN", "seu.dominio.com")
+        api_endpoint = f"https://{api_domain}/transcreve-audios"
+        st.code(api_endpoint, language="text")
+
+        if st.button("ℹ️ Instruções de Uso"):
+            st.info(
+                "Para utilizar o serviço de transcrição, siga estas etapas:\n\n"
+                "1. Copie a URL completa acima.\n"
+                "2. Na configuração de webhook da Evolution API:\n"
+                "   - Cole a URL no campo apropriado.\n"
+                "   - Ative o webhook.\n"
+                "   - Marque as opções 'Webhook Base64' e o Evento 'MESSAGES_UPSERT'.\n\n"
+                "Isso permitirá que a Evolution API envie as mensagens de áudio para o nosso serviço de transcrição."
+            )
+
     except Exception as e:
         st.error(f"Erro ao carregar estatísticas: {e}")
 

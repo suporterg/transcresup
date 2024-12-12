@@ -7,7 +7,15 @@ initialize_redis_config() {
     redis-cli -h $REDIS_HOST -p $REDIS_PORT SET PROCESS_GROUP_MESSAGES "false"
     redis-cli -h $REDIS_HOST -p $REDIS_PORT SET PROCESS_SELF_MESSAGES "true"
     redis-cli -h $REDIS_HOST -p $REDIS_PORT SET DEBUG_MODE "false"
+    redis-cli -h $REDIS_HOST -p $REDIS_PORT SET API_DOMAIN "$API_DOMAIN"
 }
+
+# Aguardar o Redis estar pronto
+echo "Aguardando o Redis ficar disponível..."
+until redis-cli -h $REDIS_HOST -p $REDIS_PORT PING; do
+  echo "Redis não está pronto - aguardando..."
+  sleep 5
+done
 
 # Inicializar configurações no Redis
 initialize_redis_config

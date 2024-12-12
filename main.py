@@ -14,7 +14,10 @@ import os
 
 app = FastAPI()
 storage = StorageHandler()
-
+@app.on_event("startup")
+async def startup_event():
+    api_domain = os.getenv("API_DOMAIN", "seu.dominio.com")
+    redis_client.set("API_DOMAIN", api_domain)
 # Função para buscar configurações do Redis com fallback para valores padrão
 def get_config(key, default=None):
     try:
