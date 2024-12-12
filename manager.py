@@ -1,3 +1,4 @@
+import requests
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -5,6 +6,7 @@ from storage import StorageHandler
 import plotly.express as px
 import os
 import redis
+
 
 # Conectar ao Redis
 redis_client = redis.Redis(host=os.getenv('REDIS_HOST', 'localhost'), port=int(os.getenv('REDIS_PORT', 6380)), decode_responses=True)
@@ -25,7 +27,22 @@ def get_from_redis(key, default=None):
     except Exception as e:
         st.error(f"Erro ao buscar no Redis: {key} -> {e}")
         return default
-
+# Função para buscar grupos do Whatsapp
+def fetch_whatsapp_groups(server_url, instance, api_key):
+    url = f"{server_url}/group/fetchAllGroups/{instance}"
+    headers = {"apikey": api_key}
+    params = {"getParticipants": "false"}  # Adicionando o parâmetro de query
+    
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        st.error(f"Erro ao buscar grupos: {str(e)}")
+        if response.text:
+            st.error(f"Resposta do servidor: {response.text}")
+        return []
+    
 # Configuração da página
 st.set_page_config(
     page_title="TranscreveZAP by Impacte AI",
@@ -197,17 +214,66 @@ def show_statistics():
 
 def manage_groups():
     st.title("👥 Gerenciar Grupos")
-    st.subheader("Adicionar Grupo Permitido")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        new_group = st.text_input("Número do Grupo", placeholder="Ex: 5521999999999")
-    with col2:
-        if st.button("Adicionar"):
-            formatted_group = f"{new_group}@g.us"
-            storage.add_allowed_group(formatted_group)
-            st.success(f"Grupo {formatted_group} adicionado com sucesso!")
-            st.experimental_rerun()
 
+    # Campos para inserção dos dados da API
+    st.subheader("Configuração da API Evolution")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        server_url = st.text_input("URL do Servidor", value=get_from_redis("EVOLUTION_API_URL", ""))
+    with col2:
+        instance = st.text_input("Instância", value=get_from_redis("EVOLUTION_INSTANCE", ""))
+    with col3:
+        api_key = st.text_input("API Key", value=get_from_redis("EVOLUTION_API_KEY", ""), type="password")
+
+    if st.button("Salvar Configurações da API"):
+        save_to_redis("EVOLUTION_API_URL", server_url)
+        save_to_redis("EVOLUTION_INSTANCE", instance)
+        save_to_redis("EVOLUTION_API_KEY", api_key)
+        st.success("Configurações da API salvas com sucesso!")
+
+    # Busca e exibição de grupos do WhatsApp
+    if server_url and instance and api_key:
+        if st.button("Buscar Grupos do WhatsApp"):
+            with st.spinner('Buscando grupos...'):
+                groups = fetch_whatsapp_groups(server_url, instance, api_key)
+                if groups:
+                    st.session_state.whatsapp_groups = groups
+                    st.success(f"{len(groups)} grupos carregados com sucesso!")
+                else:
+                    st.warning("Nenhum grupo encontrado ou erro ao buscar grupos.")
+
+        if 'whatsapp_groups' in st.session_state:
+            st.subheader("Grupos do WhatsApp")
+            search_term = st.text_input("Buscar grupos", "")
+            filtered_groups = [group for group in st.session_state.whatsapp_groups if search_term.lower() in group['subject'].lower()]
+            
+            for group in filtered_groups:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.text(f"{group['subject']} ({group['id']})")
+                with col2:
+                    is_allowed = group['id'] in storage.get_allowed_groups()
+                    if st.checkbox("Permitir", value=is_allowed, key=f"allow_{group['id']}"):
+                        if not is_allowed:
+                            storage.add_allowed_group(group['id'])
+                            st.success(f"Grupo {group['subject']} permitido!")
+                    else:
+                        if is_allowed:
+                            storage.remove_allowed_group(group['id'])
+                            st.success(f"Grupo {group['subject']} removido!")
+    else:
+        st.info("Por favor, insira as configurações da API Evolution para buscar os grupos.")
+
+    # Adicionar grupo manualmente
+    st.subheader("Adicionar Grupo Manualmente")
+    new_group = st.text_input("Número do Grupo", placeholder="Ex: 5521999999999")
+    if st.button("Adicionar"):
+        formatted_group = f"{new_group}@g.us"
+        storage.add_allowed_group(formatted_group)
+        st.success(f"Grupo {formatted_group} adicionado com sucesso!")
+        st.experimental_rerun()
+
+    # Lista de grupos permitidos
     st.subheader("Grupos Permitidos")
     allowed_groups = storage.get_allowed_groups()
     if allowed_groups:
