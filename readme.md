@@ -27,9 +27,9 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
    git clone https://github.com/seu-usuario/transcrevezap.git
    cd transcrevezap
   ```
-## Configure o arquivo `docker-compose.yaml`:
+2. Configure o arquivo `docker-compose.yaml`:
 
-```yaml
+```bash
 version: "3.7"
 services:
   tcaudio:
