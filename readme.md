@@ -27,7 +27,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
    git clone https://github.com/seu-usuario/transcrevezap.git
    cd transcrevezap
   ```
-2. Configure o arquivo `docker-compose.yaml`:
+## Configure o arquivo `docker-compose.yaml`:
 
 ```yaml
 version: "3.7"
