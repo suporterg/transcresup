@@ -27,33 +27,33 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
    git clone https://github.com/seu-usuario/transcrevezap.git
    cd transcrevezap
   ```
-2. Configure o arquivo `docker-compose.yaml`:
+2. Configure o arquivo docker-compose.yaml:
 
-```bash
-version: "3.7"
-services:
-  tcaudio:
-    image: impacteai/transcrevezap:latest
-    ports:
-      - 8005:8005  # Porta para FastAPI
-      - 8501:8501  # Porta para Streamlit
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6380
-      - MANAGER_USER=admin
-      - MANAGER_PASSWORD=sua_senha_aqui
-    depends_on:
-      - redis
-  
-  redis:
-    image: redis:6
-    command: redis-server --port 6380 --appendonly yes
+    ```yaml
+    version: "3.7"
+    services:
+      tcaudio:
+        image: impacteai/transcrevezap:latest
+        ports:
+          - 8005:8005  # Porta para FastAPI
+          - 8501:8501  # Porta para Streamlit
+        environment:
+          - REDIS_HOST=redis
+          - REDIS_PORT=6380
+          - MANAGER_USER=admin
+          - MANAGER_PASSWORD=sua_senha_aqui
+        depends_on:
+          - redis
+      
+      redis:
+        image: redis:6
+        command: redis-server --port 6380 --appendonly yes
+        volumes:
+          - redis_data:/data
+
     volumes:
-      - redis_data:/data
-
-volumes:
-  redis_data:
-```
+      redis_data:
+    ```
 
 3. Inicie os serviços:
 ```bash
