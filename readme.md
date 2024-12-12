@@ -19,29 +19,74 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 
 ---
 
-## ⚙️ **Setup Local**
+## 🚀 **Instalação e Configuração**
 
-### Ambiente Virtual
-Configure o ambiente virtual para instalar as dependências do projeto:
+### 🐳 Docker Compose
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/transcrevezap.git
+   cd transcrevezap
+  ```
+2. Configure o arquivo `docker-compose.yaml`:
+```yaml
+version: "3.7"
+services:
+  tcaudio:
+    image: impacteai/transcrevezap:latest
+    ports:
+      - 8005:8005  # Porta para FastAPI
+      - 8501:8501  # Porta para Streamlit
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6380
+      - MANAGER_USER=admin
+      - MANAGER_PASSWORD=sua_senha_aqui
+    depends_on:
+      - redis
+  
+  redis:
+    image: redis:6
+    command: redis-server --port 6380 --appendonly yes
+    volumes:
+      - redis_data:/data
 
-#### **Linux ou macOS**
-```bash
-virtualenv venv
-source ./venv/bin/activate 
-pip install -r requirements.txt
+volumes:
+  redis_data:
 ```
-#### **Windows**
+3. Inicie os serviços:
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate
-pip install -r requirements.txt
+docker-compose up -d
 ```
 
-### Configuração do Arquivo .env
-Copie o arquivo `.env.example` para `.env` e configure suas variáveis:
+## 📖 Configuração da Interface
+
+Acesse a interface de gerenciamento em http://seu-ip:8501.
+Faça login com as credenciais definidas em MANAGER_USER e MANAGER_PASSWORD.
+Na seção "Configurações", defina:
+
+GROQ_API_KEY: Sua chave da API GROQ
+BUSINESS_MESSAGE: Mensagem de rodapé após transcrição
+PROCESS_GROUP_MESSAGES: Habilitar processamento de mensagens em grupos
+PROCESS_SELF_MESSAGES: Habilitar processamento de mensagens próprias
+
+
+## 🔧 Uso
+Endpoint para Webhook da Evolution API
+Configure o webhook da Evolution API para apontar para:
 ```bash
-cp .env.example .env
+http://seu-ip:8005/transcreve-audios
 ```
+## 🔍 Troubleshooting
+Se encontrar problemas:
+
+1. Verifique os logs dos containers:
+```bash
+docker-compose logs
+```
+2. Certifique-se de que o Redis está rodando e acessível.
+3. Verifique se todas as configurações foram salvas corretamente na interface.
+
+
 ## 📖 **Configuração Detalhada das Variáveis**
 
 ### Variáveis Essenciais
@@ -78,50 +123,32 @@ uvicorn main:app --host 0.0.0.0 --port 8005
 http://127.0.0.1:8005/transcreve-audios
 ```
 
-### 🐳 Docker Compose Simples
-```yaml
-version: "3.7"
-services:
-  transcricaoaudio:
-    image: impacteai/transcrevezap:latest
-    ports:
-      - 8005:8005
-    environment:
-      Uvicorn_port: 8005
-      Uvicorn_host: 0.0.0.0
-      Uvicorn_reload: "true"
-      Uvicorn_workers: 1
-      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
-      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
-      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
-      PROCESS_SELF_MESSAGES: "true" # Define se sua próprias mensagens devem ser processadas
-      DEBUG_MODE: "false"
-      LOG_LEVEL: "INFO"
-```
 
 ### 🌟 Docker Swarm com Traefik
 ```yaml
 version: "3.7"
 
 services:
-  transcricaoaudio:
+  tcaudio:
     image: impacteai/transcrevezap:latest
-    build: .
     networks:
-      - suarededocker #troque pela sua rede do docker
+      - transcrevezap_network
     ports:
-      - 8005:8005
+      - 8005:8005  # Porta para FastAPI
+      - 8501:8501  # Porta para Streamlit
     environment:
-      Uvicorn_port: 8005
-      Uvicorn_host: 0.0.0.0
-      Uvicorn_reload: "true"
-      Uvicorn_workers: 1
-      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
-      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
-      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
-      PROCESS_SELF_MESSAGES: "true" # Define se sua próprias mensagens devem ser processadas
-      DEBUG_MODE: "false"
-      LOG_LEVEL: "INFO"
+      - UVICORN_PORT=8005
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_RELOAD=true
+      - UVICORN_WORKERS=1
+      - DEBUG_MODE=false
+      - LOG_LEVEL=INFO
+      - MANAGER_USER=seu_usuario_admin
+      - MANAGER_PASSWORD=sua_senha_segura
+      - REDIS_HOST=redis-transcrevezap
+      - REDIS_PORT=6380
+    depends_on:
+      - redis-transcrevezap
     deploy:
       mode: replicated
       replicas: 1
@@ -130,23 +157,38 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.transcricaoaudio.rule=Host(`transcricaoaudio.seudominio.com.br`) #coloque seu subdominio apontado aqui
-        - traefik.http.routers.transcricaoaudio.entrypoints=websecure
-        - traefik.http.routers.transcricaoaudio.tls.certresolver=letsencryptresolver
-        - traefik.http.services.transcricaoaudio.loadbalancer.server.port=8005
-        - traefik.http.services.transcricaoaudio.loadbalancer.passHostHeader=true
-        - traefik.http.routers.transcricaoaudio.service=transcricaoaudio
+        - traefik.http.routers.tcaudio.rule=Host(`seu.dominio.com`)
+        - traefik.http.routers.tcaudio.entrypoints=websecure
+        - traefik.http.routers.tcaudio.tls.certresolver=letsencryptresolver
+        - traefik.http.services.tcaudio.loadbalancer.server.port=8005
+        - traefik.http.services.tcaudio.loadbalancer.passHostHeader=true
+        - traefik.http.routers.tcaudio.service=tcaudio
         - traefik.http.middlewares.traefik-compress.compress=true
-        - traefik.http.routers.transcricaoaudio.middlewares=traefik-compress
-      resources:
-        limits:
-          cpus: "1"
-          memory: 1024M
+        - traefik.http.routers.tcaudio.middlewares=traefik-compress
+        # Configuração do Streamlit
+        - traefik.http.routers.tcaudio-manager.rule=Host(`manager.seu.dominio.com`)
+        - traefik.http.routers.tcaudio-manager.entrypoints=websecure
+        - traefik.http.routers.tcaudio-manager.tls.certresolver=letsencryptresolver
+        - traefik.http.services.tcaudio-manager.loadbalancer.server.port=8501
+        - traefik.http.routers.tcaudio-manager.service=tcaudio-manager
+    command: ./start.sh
+
+  redis-transcrevezap:
+    image: redis:6
+    command: redis-server --port 6380 --appendonly yes
+    volumes:
+      - redis_transcrevezap_data:/data
+    networks:
+      - transcrevezap_network
 
 networks:
-  suarededocker: #troque pela sua rede do docker
+  transcrevezap_network:
     external: true
-    name: suarededocker #troque pela sua rede do docker
+    name: sua_rede_externa  # Substitua pelo nome da sua rede externa
+
+volumes:
+  redis_transcrevezap_data:
+    driver: local
 ```
 
 ### Endpoint para inserir no webhook da Evolution API para consumir o serviço
@@ -180,6 +222,6 @@ Se encontrar problemas:
 Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
 ---
-### SE QUISER CONTRIBUIR COM O PROJETO, FAÇA O PIX NO QR CODE
+### AJUDE CONTRIBUINDO COM O PROJETO, FAÇA O PIX NO QR CODE
 ![PIX](./pix.jpeg)
 ---

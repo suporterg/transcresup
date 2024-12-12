@@ -3,30 +3,24 @@ version: "3.7"
 services:
   tcaudio:
     image: impacteai/transcrevezap:latest
-    build: .
     networks:
-      - suarededocker
+      - transcrevezap_network
     ports:
-      - 8005:8005  # FastAPI
-      - 8501:8501  # Streamlit
+      - 8005:8005  # Porta para FastAPI
+      - 8501:8501  # Porta para Streamlit
     environment:
-      Uvicorn_port: 8005
-      Uvicorn_host: 0.0.0.0
-      Uvicorn_reload: "true"
-      Uvicorn_workers: 1
-      GROQ_API_KEY: "${GROQ_API_KEY}"
-      BUSINESS_MESSAGE: "*Impacte AI* Premium Services"
-      PROCESS_GROUP_MESSAGES: "false"
-      PROCESS_SELF_MESSAGES: "true"
-      DEBUG_MODE: "false"
-      LOG_LEVEL: "INFO"
-      MANAGER_USER: "admin"
-      MANAGER_PASSWORD: "impacte2024"
-    volumes:
-      - ./config.json:/app/config.json
-      - ./backups:/app/backups
-      - ./transcription_logs.json:/app/transcription_logs.json
-      - ./static:/app/static
+      - UVICORN_PORT=8005
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_RELOAD=true
+      - UVICORN_WORKERS=1
+      - DEBUG_MODE=false
+      - LOG_LEVEL=INFO
+      - MANAGER_USER=seu_usuario_admin
+      - MANAGER_PASSWORD=sua_senha_segura
+      - REDIS_HOST=redis-transcrevezap
+      - REDIS_PORT=6380
+    depends_on:
+      - redis-transcrevezap
     deploy:
       mode: replicated
       replicas: 1
@@ -35,7 +29,7 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.tcaudio.rule=Host(`transcrevezap.seudominio.com.br`)
+        - traefik.http.routers.tcaudio.rule=Host(`seu.dominio.com`)
         - traefik.http.routers.tcaudio.entrypoints=websecure
         - traefik.http.routers.tcaudio.tls.certresolver=letsencryptresolver
         - traefik.http.services.tcaudio.loadbalancer.server.port=8005
@@ -44,13 +38,26 @@ services:
         - traefik.http.middlewares.traefik-compress.compress=true
         - traefik.http.routers.tcaudio.middlewares=traefik-compress
         # Configuração do Streamlit
-        - traefik.http.routers.tcaudio-manager.rule=Host(`manager.transcrevezap.seudominio.com.br`)
+        - traefik.http.routers.tcaudio-manager.rule=Host(`manager.seu.dominio.com`)
         - traefik.http.routers.tcaudio-manager.entrypoints=websecure
         - traefik.http.routers.tcaudio-manager.tls.certresolver=letsencryptresolver
         - traefik.http.services.tcaudio-manager.loadbalancer.server.port=8501
         - traefik.http.routers.tcaudio-manager.service=tcaudio-manager
+    command: ./start.sh
+
+  redis-transcrevezap:
+    image: redis:6
+    command: redis-server --port 6380 --appendonly yes
+    volumes:
+      - redis_transcrevezap_data:/data
+    networks:
+      - transcrevezap_network
 
 networks:
-  suarededocker:
+  transcrevezap_network:
     external: true
-    name: suarededocker
+    name: sua_rede_externa  # Substitua pelo nome da sua rede externa
+
+volumes:
+  redis_transcrevezap_data:
+    driver: local

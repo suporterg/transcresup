@@ -68,7 +68,9 @@ def show_logo():
     try:
         logo_path = os.path.join(os.path.dirname(__file__), "static", "fluxo.png")
         if os.path.exists(logo_path):
-            st.image(logo_path, width=150)
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(logo_path, width=300)  # Aumentado o tamanho para 300
         else:
             st.warning("Logo não encontrada.")
     except Exception as e:
@@ -77,7 +79,7 @@ def show_logo():
 def show_footer():
     st.markdown(
         """
-        <div class="footer">
+        <div class="footer" style="text-align: center; margin-top: 50px;">
             <p>Desenvolvido por <a href="https://impacte.ai" target="_blank">Impacte AI</a> | 
             Código fonte no <a href="https://github.com/impacte-ai/transcrevezap" target="_blank">GitHub</a></p>
         </div>
