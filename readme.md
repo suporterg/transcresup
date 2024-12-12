@@ -1,4 +1,5 @@
-# Transcrição e Resumo de Áudios no WhatsApp usando Python
+# TranscreveZAP 2.0
+## Transcrição e Resumo de Áudios no WhatsApp usando Python com interface em Streamlit
 
 ![ImpacteAI](./fluxo.png)
 
