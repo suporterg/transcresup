@@ -47,7 +47,8 @@ class Settings:
         self.BUSINESS_MESSAGE = self.get_redis_value("BUSINESS_MESSAGE", "*Impacte AI* Premium Services")
         self.PROCESS_GROUP_MESSAGES = self.get_redis_value("PROCESS_GROUP_MESSAGES", "false").lower() == "true"
         self.PROCESS_SELF_MESSAGES = self.get_redis_value("PROCESS_SELF_MESSAGES", "true").lower() == "true"
-        self.LOG_LEVEL = self.get_redis_value("LOG_LEVEL", "INFO").upper()
+        self.DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
+        self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
         # Mascarar chave ao logar
         if self.GROQ_API_KEY:

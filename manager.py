@@ -34,9 +34,15 @@ def fetch_whatsapp_groups(server_url, instance, api_key):
     params = {"getParticipants": "false"}  # Adicionando o parâmetro de query
     
     try:
+        st.write(f"Requisição para URL: {url}")  # Debug para URL
+        st.write(f"Cabeçalhos: {headers}")  # Debug para headers
+        st.write(f"Parâmetros: {params}")  # Debug para parâmetros
+        
         response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        return response.json()
+        st.write(f"Status Code: {response.status_code}")  # Debug para status HTTP
+        
+        response.raise_for_status()  # Levanta exceções HTTP
+        return response.json()  # Retorna o JSON da resposta
     except requests.RequestException as e:
         st.error(f"Erro ao buscar grupos: {str(e)}")
         if response.text:
