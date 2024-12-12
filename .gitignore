@@ -3,3 +3,6 @@
 docker-composer.yaml
 GPT.postman_collection.json
 .venv/
+.gitignore
+deploy_producao.sh
+Dockerfile

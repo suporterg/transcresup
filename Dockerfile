@@ -1,19 +1,31 @@
 # Usar uma imagem oficial do Python como base
 FROM python:3.10-slim
 
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Definir o diretório de trabalho
 WORKDIR /app
 
-# Copiar o requirements.txt e instalar dependências
+# Copiar o arquivo requirements.txt e instalar dependências
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo o código para dentro do contêiner
+# Copiar todo o código da aplicação
 COPY . .
 
-# Expor a porta onde o FastAPI vai rodar
-EXPOSE 8005
+# Garantir que o diretório static existe
+RUN mkdir -p /app/static
 
-# Comando para iniciar a aplicação
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+# Copiar arquivos estáticos para o diretório apropriado
+COPY static/ /app/static/
+
+# Garantir permissões de execução ao script inicial
+RUN chmod +x start.sh
+
+# Expor as portas usadas pela aplicação
+EXPOSE 8005 8501
+
+# Definir o comando inicial
+CMD ["./start.sh"]

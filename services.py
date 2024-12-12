@@ -2,27 +2,40 @@ import aiohttp
 import base64
 import aiofiles
 from fastapi import HTTPException
-from config import settings, logger
+from config import settings, logger, redis_client
+from storage import StorageHandler
+import os
+import json
+import tempfile
+
+# Inicializa o storage handler
+storage = StorageHandler()
 
 async def convert_base64_to_file(base64_data):
     """Converte dados base64 em arquivo temporário"""
     try:
-        logger.debug("Iniciando conversão de base64 para arquivo")
+        storage.add_log("DEBUG", "Iniciando conversão de base64 para arquivo")
         audio_data = base64.b64decode(base64_data)
-        audio_file_path = "/tmp/audio_file.mp3"
-
-        async with aiofiles.open(audio_file_path, "wb") as f:
-            await f.write(audio_data)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+            temp_file.write(audio_data)
+            audio_file_path = temp_file.name
         
-        logger.debug(f"Arquivo temporário criado em: {audio_file_path}")
+        storage.add_log("DEBUG", "Arquivo temporário criado", {
+            "path": audio_file_path
+        })
         return audio_file_path
     except Exception as e:
-        logger.error(f"Erro na conversão base64: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro na conversão base64", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
         raise
 
 async def summarize_text_if_needed(text):
     """Resumir texto usando a API GROQ"""
-    logger.debug("Iniciando processo de resumo do texto")
+    storage.add_log("DEBUG", "Iniciando processo de resumo", {
+        "text_length": len(text)
+    })
     
     url_completions = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -50,25 +63,33 @@ async def summarize_text_if_needed(text):
 
     try:
         async with aiohttp.ClientSession() as session:
-            logger.debug("Enviando requisição para API GROQ")
+            storage.add_log("DEBUG", "Enviando requisição para API GROQ")
             async with session.post(url_completions, headers=headers, json=json_data) as summary_response:
                 if summary_response.status == 200:
                     summary_result = await summary_response.json()
                     summary_text = summary_result["choices"][0]["message"]["content"]
-                    logger.info("Resumo gerado com sucesso")
-                    logger.debug(f"Resumo: {summary_text[:100]}...")
+                    storage.add_log("INFO", "Resumo gerado com sucesso", {
+                        "original_length": len(text),
+                        "summary_length": len(summary_text)
+                    })
                     return summary_text
                 else:
                     error_text = await summary_response.text()
-                    logger.error(f"Erro na API GROQ: {error_text}")
+                    storage.add_log("ERROR", "Erro na API GROQ", {
+                        "error": error_text,
+                        "status": summary_response.status
+                    })
                     raise Exception(f"Erro ao resumir o texto: {error_text}")
     except Exception as e:
-        logger.error(f"Erro no processo de resumo: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro no processo de resumo", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
         raise
 
 async def transcribe_audio(audio_source, apikey=None):
     """Transcreve áudio usando a API GROQ"""
-    logger.info("Iniciando processo de transcrição")
+    storage.add_log("INFO", "Iniciando processo de transcrição")
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
     groq_headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
 
@@ -76,21 +97,27 @@ async def transcribe_audio(audio_source, apikey=None):
         async with aiohttp.ClientSession() as session:
             # Se o audio_source for uma URL
             if isinstance(audio_source, str) and audio_source.startswith('http'):
-                logger.debug(f"Baixando áudio da URL: {audio_source}")
+                storage.add_log("DEBUG", "Baixando áudio da URL", {
+                    "url": audio_source
+                })
                 download_headers = {"apikey": apikey} if apikey else {}
                 
                 async with session.get(audio_source, headers=download_headers) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Erro no download do áudio: Status {response.status}, Resposta: {error_text}")
+                        storage.add_log("ERROR", "Erro no download do áudio", {
+                            "status": response.status,
+                            "error": error_text
+                        })
                         raise Exception(f"Erro ao baixar áudio: {error_text}")
                     
                     audio_data = await response.read()
-                    temp_file = "/tmp/audio_from_url.mp3"
-                    async with aiofiles.open(temp_file, "wb") as f:
-                        await f.write(audio_data)
-                    audio_source = temp_file
-                    logger.debug(f"Áudio salvo temporariamente em: {temp_file}")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                        temp_file.write(audio_data)
+                        audio_source = temp_file.name
+                    storage.add_log("DEBUG", "Áudio salvo temporariamente", {
+                        "path": audio_source
+                    })
 
             # Preparar dados para transcrição
             data = aiohttp.FormData()
@@ -98,51 +125,73 @@ async def transcribe_audio(audio_source, apikey=None):
             data.add_field('model', 'whisper-large-v3')
             data.add_field('language', 'pt')
 
-            logger.debug("Enviando áudio para transcrição")
+            storage.add_log("DEBUG", "Enviando áudio para transcrição")
             async with session.post(url, headers=groq_headers, data=data) as response:
                 if response.status == 200:
                     result = await response.json()
                     message = result.get("text", "")
-                    logger.info("Transcrição concluída com sucesso")
-                    logger.debug(f"Texto transcrito: {message[:100]}...")
+                    storage.add_log("INFO", "Transcrição concluída com sucesso", {
+                        "text_length": len(message)
+                    })
 
                     is_summary = False
                     if len(message) > 1000:
-                        logger.debug("Texto longo detectado, iniciando resumo")
+                        storage.add_log("DEBUG", "Texto longo detectado, iniciando resumo", {
+                            "text_length": len(message)
+                        })
                         is_summary = True
                         message = await summarize_text_if_needed(message)
 
                     return message, is_summary
                 else:
                     error_text = await response.text()
-                    logger.error(f"Erro na transcrição: {error_text}")
+                    storage.add_log("ERROR", "Erro na transcrição", {
+                        "error": error_text,
+                        "status": response.status
+                    })
                     raise Exception(f"Erro na transcrição: {error_text}")
 
     except Exception as e:
-        logger.error(f"Erro no processo de transcrição: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro no processo de transcrição", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
         raise
+    finally:
+        # Limpar arquivos temporários
+        if isinstance(audio_source, str) and os.path.exists(audio_source):
+            os.unlink(audio_source)
 
 async def send_message_to_whatsapp(server_url, instance, apikey, message, remote_jid, message_id):
     """Envia mensagem via WhatsApp"""
-    logger.debug(f"Preparando envio de mensagem para: {remote_jid}")
+    storage.add_log("DEBUG", "Preparando envio de mensagem", {
+        "remote_jid": remote_jid,
+        "instance": instance
+    })
     url = f"{server_url}/message/sendText/{instance}"
     headers = {"apikey": apikey}
 
     try:
         # Tentar enviar na V1
         body = get_body_message_to_whatsapp_v1(message, remote_jid)
-        logger.debug("Tentando envio no formato V1")
+        storage.add_log("DEBUG", "Tentando envio no formato V1")
         result = await call_whatsapp(url, body, headers)
 
         # Se falhar, tenta V2
         if not result:
-            logger.debug("Formato V1 falhou, tentando formato V2")
+            storage.add_log("DEBUG", "Formato V1 falhou, tentando formato V2")
             body = get_body_message_to_whatsapp_v2(message, remote_jid, message_id)
             await call_whatsapp(url, body, headers)
             
-        logger.info("Mensagem enviada com sucesso")
+        storage.add_log("INFO", "Mensagem enviada com sucesso", {
+            "remote_jid": remote_jid
+        })
     except Exception as e:
-        logger.error(f"Erro no envio da mensagem: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro no envio da mensagem", {
+            "error": str(e),
+            "type": type(e).__name__,
+            "remote_jid": remote_jid
+        })
         raise
 
 def get_body_message_to_whatsapp_v1(message, remote_jid):
@@ -165,21 +214,32 @@ async def call_whatsapp(url, body, headers):
     """Realiza chamada à API do WhatsApp"""
     try:
         async with aiohttp.ClientSession() as session:
-            logger.debug(f"Enviando requisição para: {url}")
+            storage.add_log("DEBUG", "Enviando requisição para WhatsApp", {
+                "url": url
+            })
             async with session.post(url, json=body, headers=headers) as response:
                 if response.status not in [200, 201]:
                     error_text = await response.text()
-                    logger.error(f"Erro na API do WhatsApp: Status {response.status}, Resposta: {error_text}")
+                    storage.add_log("ERROR", "Erro na API do WhatsApp", {
+                        "status": response.status,
+                        "error": error_text
+                    })
                     return False
-                logger.debug("Requisição bem-sucedida")
+                storage.add_log("DEBUG", "Requisição bem-sucedida")
                 return True
     except Exception as e:
-        logger.error(f"Erro na chamada WhatsApp: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro na chamada WhatsApp", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
         return False
 
 async def get_audio_base64(server_url, instance, apikey, message_id):
     """Obtém áudio em Base64 via API do WhatsApp"""
-    logger.debug(f"Obtendo áudio base64 para mensagem: {message_id}")
+    storage.add_log("DEBUG", "Obtendo áudio base64", {
+        "message_id": message_id,
+        "instance": instance
+    })
     url = f"{server_url}/chat/getBase64FromMediaMessage/{instance}"
     headers = {"apikey": apikey}
     body = {"message": {"key": {"id": message_id}}, "convertToMp4": False}
@@ -189,12 +249,19 @@ async def get_audio_base64(server_url, instance, apikey, message_id):
             async with session.post(url, json=body, headers=headers) as response:
                 if response.status in [200, 201]:
                     result = await response.json()
-                    logger.info("Áudio base64 obtido com sucesso")
+                    storage.add_log("INFO", "Áudio base64 obtido com sucesso")
                     return result.get("base64", "")
                 else:
                     error_text = await response.text()
-                    logger.error(f"Erro ao obter áudio base64: {error_text}")
+                    storage.add_log("ERROR", "Erro ao obter áudio base64", {
+                        "status": response.status,
+                        "error": error_text
+                    })
                     raise HTTPException(status_code=500, detail="Falha ao obter áudio em base64")
     except Exception as e:
-        logger.error(f"Erro na obtenção do áudio base64: {str(e)}", exc_info=settings.DEBUG_MODE)
+        storage.add_log("ERROR", "Erro na obtenção do áudio base64", {
+            "error": str(e),
+            "type": type(e).__name__,
+            "message_id": message_id
+        })
         raise

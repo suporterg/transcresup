@@ -1,24 +1,32 @@
 version: "3.7"
 
 services:
-  transcricaoaudio:
+  tcaudio:
     image: impacteai/transcrevezap:latest
     build: .
     networks:
-      - suarededocker #troque pela sua rede do docker
+      - suarededocker
     ports:
-      - 8005:8005
+      - 8005:8005  # FastAPI
+      - 8501:8501  # Streamlit
     environment:
       Uvicorn_port: 8005
       Uvicorn_host: 0.0.0.0
       Uvicorn_reload: "true"
       Uvicorn_workers: 1
-      GROQ_API_KEY: "substitua_sua_chave_GROQ_aqui" #coloque sua chave GROQ aqui
-      BUSINESS_MESSAGE: "substitua_sua_mensagem_de_servico_aqui" #coloque a mensagem que será enviada ao final da transcrição aqui
-      PROCESS_GROUP_MESSAGES: "false" # Define se mensagens de grupos devem ser processadas
-      PROCESS_SELF_MESSAGES: "true" # Define se sua próprias mensagens devem ser processadas
+      GROQ_API_KEY: "${GROQ_API_KEY}"
+      BUSINESS_MESSAGE: "*Impacte AI* Premium Services"
+      PROCESS_GROUP_MESSAGES: "false"
+      PROCESS_SELF_MESSAGES: "true"
       DEBUG_MODE: "false"
       LOG_LEVEL: "INFO"
+      MANAGER_USER: "admin"
+      MANAGER_PASSWORD: "impacte2024"
+    volumes:
+      - ./config.json:/app/config.json
+      - ./backups:/app/backups
+      - ./transcription_logs.json:/app/transcription_logs.json
+      - ./static:/app/static
     deploy:
       mode: replicated
       replicas: 1
@@ -27,20 +35,22 @@ services:
           - node.role == manager
       labels:
         - traefik.enable=true
-        - traefik.http.routers.transcricaoaudio.rule=Host(`transcricaoaudio.seudominio.com.br`) #coloque seu subdominio apontado aqui
-        - traefik.http.routers.transcricaoaudio.entrypoints=websecure
-        - traefik.http.routers.transcricaoaudio.tls.certresolver=letsencryptresolver
-        - traefik.http.services.transcricaoaudio.loadbalancer.server.port=8005
-        - traefik.http.services.transcricaoaudio.loadbalancer.passHostHeader=true
-        - traefik.http.routers.transcricaoaudio.service=transcricaoaudio
+        - traefik.http.routers.tcaudio.rule=Host(`transcrevezap.seudominio.com.br`)
+        - traefik.http.routers.tcaudio.entrypoints=websecure
+        - traefik.http.routers.tcaudio.tls.certresolver=letsencryptresolver
+        - traefik.http.services.tcaudio.loadbalancer.server.port=8005
+        - traefik.http.services.tcaudio.loadbalancer.passHostHeader=true
+        - traefik.http.routers.tcaudio.service=tcaudio
         - traefik.http.middlewares.traefik-compress.compress=true
-        - traefik.http.routers.transcricaoaudio.middlewares=traefik-compress
-      resources:
-        limits:
-          cpus: "1"
-          memory: 1024M
+        - traefik.http.routers.tcaudio.middlewares=traefik-compress
+        # Configuração do Streamlit
+        - traefik.http.routers.tcaudio-manager.rule=Host(`manager.transcrevezap.seudominio.com.br`)
+        - traefik.http.routers.tcaudio-manager.entrypoints=websecure
+        - traefik.http.routers.tcaudio-manager.tls.certresolver=letsencryptresolver
+        - traefik.http.services.tcaudio-manager.loadbalancer.server.port=8501
+        - traefik.http.routers.tcaudio-manager.service=tcaudio-manager
 
 networks:
-  suarededocker: #troque pela sua rede do docker
+  suarededocker:
     external: true
-    name: suarededocker #troque pela sua rede do docker
+    name: suarededocker

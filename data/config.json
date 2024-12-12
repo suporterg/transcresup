@@ -1,0 +1,7 @@
+{
+    "GROQ_API_KEY": "default_key",
+    "BUSINESS_MESSAGE": "*Impacte AI* Premium Services",
+    "PROCESS_GROUP_MESSAGES": false,
+    "PROCESS_SELF_MESSAGES": true,
+    "DEBUG_MODE": false
+}
