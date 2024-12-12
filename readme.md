@@ -1,4 +1,4 @@
-# Transcrição e Resumo de Áudios no WhatsApp usando Python
+## Transcrição e Resumo de Áudios no WhatsApp usando Python
 
 ![ImpacteAI](./fluxo.png)
 
