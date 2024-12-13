@@ -24,13 +24,13 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 
 ### 🐳 Docker Compose
 1. Clone o repositório:
-   ```bash
+```bash
    git clone https://github.com/seu-usuario/transcrevezap.git
    cd transcrevezap
-  ```
+```
 2. Configure o arquivo docker-compose.yaml:
 
-    ```yaml
+```yaml
     version: "3.7"
     services:
       tcaudio:
@@ -57,7 +57,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 
     volumes:
       redis_data:
-    ```
+```
 
 3. Inicie os serviços:
 ```bash
