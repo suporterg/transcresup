@@ -47,16 +47,16 @@ async def summarize_text_if_needed(text):
         "messages": [{
             "role": "user",
             "content": f"""
-                Entenda o contexto desse áudio e faça um resumo super enxuto sobre o que se trata, coloque os pontos relevantes e mais importantes no resumo de forma muito curta.
-                Esse áudio foi enviado pelo whatsapp, de alguém, para Gabriel.  
+                Entenda o contexto desse áudio e faça um resumo super enxuto sobre o que se trata.
+                Esse áudio foi enviado pelo whatsapp, de alguém, para Fabio.  
                 Escreva APENAS o resumo do áudio como se fosse você que estivesse enviando 
-                essa mensagem!  Não comprimente, não de oi, não escreva nada antes nem depois 
+                essa mensagem!  Não cumprimente, não de oi, não escreva nada antes nem depois 
                 do resumo, responda apenas um resumo enxuto do que foi falado no áudio.  
                 IMPORTANTE: Não faça esse resumo como se fosse um áudio que uma terceira 
                 pessoa enviou, não diga coisas como 'a pessoa está falando...' etc. 
                 Escreva o resumo com base nessa mensagem do áudio, 
                 como se você estivesse escrevendo esse resumo e enviando em 
-                texto pelo whatsapp: {text}""",
+                texto pelo whatsapp de forma impessoal: {text}""",
         }],
         "model": "llama-3.3-70b-versatile",
     }

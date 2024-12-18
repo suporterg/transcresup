@@ -12,3 +12,4 @@ __pycache__
 *.postman_collection.json
 deploy_*.sh
 manager_atualizar.py
+roadmap.md
