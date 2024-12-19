@@ -118,6 +118,13 @@ async def summarize_text_if_needed(text):
             请仅以摘要的形式回答，就好像是你在发送这条消息。
             不要问候，也不要在摘要前后写任何内容，只需用一句简短的话总结音频中所说的内容。
             """,
+        "ro": """
+            Înțelege contextul acestui audio și creează un rezumat foarte concis despre ce este vorba. 
+            Acest audio a fost trimis prin WhatsApp, de cineva, către Fabio. 
+            Scrie DOAR rezumatul audio-ului ca și cum tu ai trimite acest mesaj. 
+            Nu saluta, nu scrie nimic înainte sau după rezumat, răspunde doar cu un rezumat concis despre ce s-a spus în audio.
+            """,
+
         "ru": """
             Поймите контекст этого аудио и сделайте очень краткое резюме, о чем идет речь. 
             Это аудио было отправлено через WhatsApp кем-то Фабио. 

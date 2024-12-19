@@ -439,6 +439,7 @@ def manage_settings():
         "ja": "Japonês",
         "ko": "Coreano",
         "zh": "Chinês",
+        "ro": "Romeno",
         "ru": "Russo",
         "ar": "Árabe",
         "hi": "Hindi",
