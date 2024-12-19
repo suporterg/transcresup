@@ -241,16 +241,22 @@ O TranscreveZAP agora suporta transcrição e resumo em múltiplos idiomas. Na s
 3. A mudança de idioma é aplicada instantaneamente após salvar
 
 Idiomas suportados:
-- 🇧🇷 Português (padrão)
-- 🇺🇸 Inglês
+- 🇩🇪 Alemão
+- 🇸🇦 Árabe
+- 🇨🇳 Chinês
+- 🇰🇷 Coreano
 - 🇪🇸 Espanhol
 - 🇫🇷 Francês
-- 🇩🇪 Alemão
+- 🇮🇳 Hindi
+- 🇳🇱 Holandês
+- 🇬🇧 Inglês
 - 🇮🇹 Italiano
 - 🇯🇵 Japonês
-- 🇰🇷 Coreano
-- 🇨🇳 Chinês
+- 🇵🇱 Polonês
+- 🇧🇷 Português (padrão)
+- 🇷🇴 Romeno
 - 🇷🇺 Russo
+- 🇹🇷 Turco
 
 ## 🔄 Sistema de Rodízio de Chaves GROQ
 O TranscreveZAP agora suporta múltiplas chaves GROQ com sistema de rodízio automático para melhor distribuição de carga e redundância.
