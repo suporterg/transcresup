@@ -169,3 +169,34 @@ class StorageHandler:
                     self.redis.delete(key)
         except Exception as e:
             self.logger.error(f"Erro ao limpar backups antigos: {e}")
+            
+    # Método de rotação de chaves groq
+    def get_groq_keys(self) -> List[str]:
+        """Obtém todas as chaves GROQ armazenadas."""
+        return list(self.redis.smembers(self._get_redis_key("groq_keys")))
+
+    def add_groq_key(self, key: str):
+        """Adiciona uma nova chave GROQ ao conjunto."""
+        if key and key.startswith("gsk_"):
+            self.redis.sadd(self._get_redis_key("groq_keys"), key)
+            return True
+        return False
+
+    def remove_groq_key(self, key: str):
+        """Remove uma chave GROQ do conjunto."""
+        self.redis.srem(self._get_redis_key("groq_keys"), key)
+
+    def get_next_groq_key(self) -> str:
+        """
+        Obtém a próxima chave GROQ no sistema de rodízio.
+        Utiliza um contador no Redis para controlar a rotação.
+        """
+        keys = self.get_groq_keys()
+        if not keys:
+            return None  
+        # Obtém e incrementa o contador de rodízio
+        counter = int(self.redis.get(self._get_redis_key("groq_key_counter")) or "0")
+        next_counter = (counter + 1) % len(keys)
+        self.redis.set(self._get_redis_key("groq_key_counter"), str(next_counter))
+        
+        return keys[counter % len(keys)]

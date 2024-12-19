@@ -219,12 +219,80 @@ Para usar com Traefik, certifique-se de:
 - Em produção, recomenda-se DEBUG_MODE=false
 - Configure LOG_LEVEL=DEBUG apenas para troubleshooting
 
+## ✨ Novos Recursos na v2.1
+
+### 🌍 Suporte Multilíngue
+- Transcrição e resumo em 10+ idiomas
+- Mudança instantânea de idioma
+- Interface intuitiva para seleção de idioma
+- Mantém consistência entre transcrição e resumo
+
+### 🔄 Sistema Inteligente de Rodízio de Chaves
+- Suporte a múltiplas chaves GROQ
+- Balanceamento automático de carga
+- Maior redundância e disponibilidade
+- Gestão simplificada de chaves via interface
+
+## 🌍 Sistema de Idiomas
+O TranscreveZAP agora suporta transcrição e resumo em múltiplos idiomas. Na seção "Configurações", você pode:
+
+1. Selecionar o idioma principal para transcrição e resumo
+2. O sistema manterá Português como padrão se nenhum outro for selecionado
+3. A mudança de idioma é aplicada instantaneamente após salvar
+
+Idiomas suportados:
+- 🇧🇷 Português (padrão)
+- 🇺🇸 Inglês
+- 🇪🇸 Espanhol
+- 🇫🇷 Francês
+- 🇩🇪 Alemão
+- 🇮🇹 Italiano
+- 🇯🇵 Japonês
+- 🇰🇷 Coreano
+- 🇨🇳 Chinês
+- 🇷🇺 Russo
+
+## 🔄 Sistema de Rodízio de Chaves GROQ
+O TranscreveZAP agora suporta múltiplas chaves GROQ com sistema de rodízio automático para melhor distribuição de carga e redundância.
+
+### Funcionalidades:
+1. Adicione múltiplas chaves GROQ para distribuição de carga
+2. O sistema alterna automaticamente entre as chaves disponíveis
+3. Se uma chave falhar, o sistema usa a próxima disponível
+4. Visualize todas as chaves configuradas no painel
+5. Adicione ou remova chaves sem interromper o serviço
+
+### Como Configurar:
+1. Acesse a seção "Configurações"
+2. Na área "🔑 Gerenciamento de Chaves GROQ":
+   - Adicione a chave principal
+   - Use "Adicionar Nova Chave GROQ" para incluir chaves adicionais
+   - O sistema começará a usar todas as chaves em rodízio automaticamente
+
+### Boas Práticas:
+- Mantenha pelo menos duas chaves ativas para redundância
+- Monitore o uso das chaves pelo painel administrativo
+- Remova chaves expiradas ou inválidas
+- Todas as chaves devem começar com 'gsk_'
+
 ## 🔍 **Troubleshooting**
 Se encontrar problemas:
 1. Verifique se todas as variáveis obrigatórias estão configuradas
 2. Ative DEBUG_MODE=true temporariamente
 3. Verifique os logs do container
 4. Certifique-se que as APIs estão acessíveis
+
+### Problemas com Múltiplas Chaves GROQ:
+1. Verifique se todas as chaves começam com 'gsk_'
+2. Confirme se as chaves estão ativas na console GROQ
+3. Monitore os logs para identificar falhas específicas de chaves
+4. Mantenha pelo menos uma chave válida no sistema
+
+### Problemas com Idiomas:
+1. Verifique se o idioma está corretamente selecionado nas configurações
+2. Confirme se a configuração foi salva com sucesso
+3. Reinicie o serviço se as alterações não forem aplicadas
+4. Verifique os logs para confirmar o idioma em uso
 
 ## 📄 **Licença**
 Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.

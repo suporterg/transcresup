@@ -49,7 +49,8 @@ class Settings:
         self.PROCESS_SELF_MESSAGES = self.get_redis_value("PROCESS_SELF_MESSAGES", "true").lower() == "true"
         self.DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-
+        self.TRANSCRIPTION_LANGUAGE = self.get_redis_value("TRANSCRIPTION_LANGUAGE", "pt")
+        
         # Mascarar chave ao logar
         if self.GROQ_API_KEY:
             masked_key = f"{self.GROQ_API_KEY[:10]}...{self.GROQ_API_KEY[-4:]}"

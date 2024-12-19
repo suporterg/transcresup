@@ -31,32 +31,107 @@ async def convert_base64_to_file(base64_data):
         })
         raise
 
+async def get_groq_key():
+    """Obtém a próxima chave GROQ do sistema de rodízio."""
+    key = storage.get_next_groq_key()
+    if not key:
+        raise HTTPException(
+            status_code=500,
+            detail="Nenhuma chave GROQ configurada. Configure pelo menos uma chave no painel administrativo."
+        )
+    return key
+
 async def summarize_text_if_needed(text):
-    """Resumir texto usando a API GROQ"""
+    """Resumir texto usando a API GROQ com sistema de rodízio de chaves"""
     storage.add_log("DEBUG", "Iniciando processo de resumo", {
         "text_length": len(text)
     })
     
+    # Obter idioma configurado
+    language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
+    storage.add_log("DEBUG", "Idioma configurado para resumo", {
+    "language": language,
+    "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
+    })
     url_completions = "https://api.groq.com/openai/v1/chat/completions"
+    groq_key = await get_groq_key()
     headers = {
-        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+        "Authorization": f"Bearer {groq_key}",
         "Content-Type": "application/json",
     }
-
+    
+    # Adaptar o prompt para considerar o idioma
+    prompt_by_language = {
+        "pt": """
+            Entenda o contexto desse áudio e faça um resumo super enxuto sobre o que se trata.
+            Esse áudio foi enviado pelo whatsapp, de alguém, para Fabio.  
+            Escreva APENAS o resumo do áudio como se fosse você que estivesse enviando 
+            essa mensagem! Não cumprimente, não de oi, não escreva nada antes nem depois 
+            do resumo, responda apenas um resumo enxuto do que foi falado no áudio.
+            """,
+        "en": """
+            Understand the context of this audio and make a very concise summary of what it's about.
+            This audio was sent via WhatsApp, from someone, to Fabio.
+            Write ONLY the summary of the audio as if you were sending this message yourself!
+            Don't greet, don't say hi, don't write anything before or after the summary,
+            respond with just a concise summary of what was said in the audio.
+            """,
+        "es": """
+            Entiende el contexto de este audio y haz un resumen muy conciso sobre de qué se trata. 
+            Este audio fue enviado por WhatsApp, de alguien, para Fabio. 
+            Escribe SOLO el resumen del audio como si tú estuvieras enviando este mensaje. 
+            No saludes, no escribas nada antes ni después del resumen, responde únicamente un resumen conciso de lo dicho en el audio.
+            """,
+        "fr": """
+            Comprenez le contexte de cet audio et faites un résumé très concis de ce dont il s'agit. 
+            Cet audio a été envoyé via WhatsApp, par quelqu'un, à Fabio. 
+            Écrivez UNIQUEMENT le résumé de l'audio comme si c'était vous qui envoyiez ce message. 
+            Ne saluez pas, n'écrivez rien avant ou après le résumé, répondez seulement par un résumé concis de ce qui a été dit dans l'audio.
+            """,
+        "de": """
+            Verstehen Sie den Kontext dieses Audios und erstellen Sie eine sehr kurze Zusammenfassung, worum es geht. 
+            Dieses Audio wurde über WhatsApp von jemandem an Fabio gesendet. 
+            Schreiben Sie NUR die Zusammenfassung des Audios, als ob Sie diese Nachricht senden würden. 
+            Grüßen Sie nicht, schreiben Sie nichts vor oder nach der Zusammenfassung, antworten Sie nur mit einer kurzen Zusammenfassung dessen, was im Audio gesagt wurde.
+            """,
+        "it": """
+            Comprendi il contesto di questo audio e fai un riassunto molto conciso di cosa si tratta. 
+            Questo audio è stato inviato tramite WhatsApp, da qualcuno, a Fabio. 
+            Scrivi SOLO il riassunto dell'audio come se fossi tu a inviare questo messaggio. 
+            Non salutare, non scrivere nulla prima o dopo il riassunto, rispondi solo con un riassunto conciso di ciò che è stato detto nell'audio.
+            """,
+        "ja": """
+            この音声の内容を理解し、それが何について話されているのかを非常に簡潔に要約してください。
+            この音声は、誰かがWhatsAppでファビオに送ったものです。
+            あなたがそのメッセージを送っているように、音声の要約だけを記述してください。
+            挨拶や前置き、後書きは書かず、音声で話された内容の簡潔な要約のみを返信してください。
+            """,
+        "ko": """
+            이 오디오의 맥락을 이해하고, 무엇에 관한 것인지 매우 간략하게 요약하세요.
+            이 오디오는 누군가가 WhatsApp을 통해 Fabio에게 보낸 것입니다.
+            마치 당신이 메시지를 보내는 것처럼 오디오의 요약만 작성하세요.
+            인사하거나, 요약 전후로 아무것도 쓰지 말고, 오디오에서 말한 내용을 간략하게 요약한 답변만 하세요.
+            """,
+        "zh": """
+            理解这个音频的上下文，并简洁地总结它的内容。
+            这个音频是某人通过WhatsApp发送给Fabio的。
+            请仅以摘要的形式回答，就好像是你在发送这条消息。
+            不要问候，也不要在摘要前后写任何内容，只需用一句简短的话总结音频中所说的内容。
+            """,
+        "ru": """
+            Поймите контекст этого аудио и сделайте очень краткое резюме, о чем идет речь. 
+            Это аудио было отправлено через WhatsApp кем-то Фабио. 
+            Напишите ТОЛЬКО резюме аудио, как будто вы отправляете это сообщение. 
+            Не приветствуйте, не пишите ничего до или после резюме, ответьте только кратким резюме того, что говорилось в аудио.
+            """
+    }
+    
+    # Usar o prompt do idioma configurado ou fallback para português
+    base_prompt = prompt_by_language.get(language, prompt_by_language["pt"])
     json_data = {
         "messages": [{
             "role": "user",
-            "content": f"""
-                Entenda o contexto desse áudio e faça um resumo super enxuto sobre o que se trata.
-                Esse áudio foi enviado pelo whatsapp, de alguém, para Fabio.  
-                Escreva APENAS o resumo do áudio como se fosse você que estivesse enviando 
-                essa mensagem!  Não cumprimente, não de oi, não escreva nada antes nem depois 
-                do resumo, responda apenas um resumo enxuto do que foi falado no áudio.  
-                IMPORTANTE: Não faça esse resumo como se fosse um áudio que uma terceira 
-                pessoa enviou, não diga coisas como 'a pessoa está falando...' etc. 
-                Escreva o resumo com base nessa mensagem do áudio, 
-                como se você estivesse escrevendo esse resumo e enviando em 
-                texto pelo whatsapp de forma impessoal: {text}""",
+            "content": f"{base_prompt}\n\nTexto para resumir: {text}",
         }],
         "model": "llama-3.3-70b-versatile",
     }
@@ -70,7 +145,8 @@ async def summarize_text_if_needed(text):
                     summary_text = summary_result["choices"][0]["message"]["content"]
                     storage.add_log("INFO", "Resumo gerado com sucesso", {
                         "original_length": len(text),
-                        "summary_length": len(summary_text)
+                        "summary_length": len(summary_text),
+                        "language": language
                     })
                     return summary_text
                 else:
@@ -88,11 +164,18 @@ async def summarize_text_if_needed(text):
         raise
 
 async def transcribe_audio(audio_source, apikey=None):
-    """Transcreve áudio usando a API GROQ"""
+    """Transcreve áudio usando a API GROQ com sistema de rodízio de chaves"""
     storage.add_log("INFO", "Iniciando processo de transcrição")
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
-    groq_headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
-
+    groq_key = await get_groq_key()
+    groq_headers = {"Authorization": f"Bearer {groq_key}"}
+    # Obter idioma configurado
+    language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
+    storage.add_log("DEBUG", "Idioma configurado para transcrição", {
+    "language": language,
+    "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
+    })
+    
     try:
         async with aiohttp.ClientSession() as session:
             # Se o audio_source for uma URL
@@ -123,7 +206,7 @@ async def transcribe_audio(audio_source, apikey=None):
             data = aiohttp.FormData()
             data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
             data.add_field('model', 'whisper-large-v3')
-            data.add_field('language', 'pt')
+            data.add_field('language', language)
 
             storage.add_log("DEBUG", "Enviando áudio para transcrição")
             async with session.post(url, headers=groq_headers, data=data) as response:

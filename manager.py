@@ -114,6 +114,7 @@ def load_settings():
             "BUSINESS_MESSAGE": get_from_redis("BUSINESS_MESSAGE", "*Impacte AI* Premium Services"),
             "PROCESS_GROUP_MESSAGES": get_from_redis("PROCESS_GROUP_MESSAGES", "false"),
             "PROCESS_SELF_MESSAGES": get_from_redis("PROCESS_SELF_MESSAGES", "true"),
+            "TRANSCRIPTION_LANGUAGE": get_from_redis("TRANSCRIPTION_LANGUAGE", "pt"),
         }
     except Exception as e:
         st.error(f"Erro ao carregar configurações do Redis: {e}")
@@ -344,12 +345,143 @@ def manage_blocks():
 def manage_settings():
     st.title("⚙️ Configurações")
     st.subheader("Configurações do Sistema")
-    st.text_input("GROQ_API_KEY", value=st.session_state.settings["GROQ_API_KEY"], key="groq_api_key")
-    st.text_input("Mensagem de Serviço no Rodapé", value=st.session_state.settings["BUSINESS_MESSAGE"], key="business_message")
-    st.selectbox("Processar Mensagens em Grupos", options=["true", "false"], index=["true", "false"].index(st.session_state.settings["PROCESS_GROUP_MESSAGES"]), key="process_group_messages")
-    st.selectbox("Processar Mensagens Próprias", options=["true", "false"], index=["true", "false"].index(st.session_state.settings["PROCESS_SELF_MESSAGES"]), key="process_self_messages")
-    if st.button("Salvar Configurações"):
-        save_settings()
+
+    # Seção de chaves GROQ com sistema de rodízio
+    st.subheader("🔑 Gerenciamento de Chaves GROQ")
+    
+    # Campo para chave principal (mantendo compatibilidade)
+    main_key = st.text_input(
+        "GROQ API Key Principal",
+        value=st.session_state.settings["GROQ_API_KEY"],
+        key="groq_api_key",
+        type="password",
+        help="Chave GROQ principal do sistema"
+    )
+
+    # Seção de chaves adicionais
+    st.markdown("---")
+    st.subheader("Chaves GROQ Adicionais (Sistema de Rodízio)")
+    
+    # Exibir chaves existentes
+    groq_keys = storage.get_groq_keys()
+    if groq_keys:
+        st.write("Chaves configuradas para rodízio:")
+        for key in groq_keys:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                masked_key = f"{key[:10]}...{key[-4:]}"
+                st.code(masked_key, language=None)
+            with col2:
+                if st.button("🗑️", key=f"remove_{key}", help="Remover esta chave"):
+                    storage.remove_groq_key(key)
+                    st.success(f"Chave removida do rodízio!")
+                    st.experimental_rerun()
+
+    # Adicionar nova chave
+    new_key = st.text_input(
+        "Adicionar Nova Chave GROQ",
+        key="new_groq_key",
+        type="password",
+        help="Insira uma nova chave GROQ para adicionar ao sistema de rodízio"
+    )
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        if st.button("➕ Adicionar ao Rodízio", help="Adicionar esta chave ao sistema de rodízio"):
+            if new_key:
+                if new_key.startswith("gsk_"):
+                    storage.add_groq_key(new_key)
+                    st.success("Nova chave adicionada ao sistema de rodízio!")
+                    st.experimental_rerun()
+                else:
+                    st.error("Chave inválida! A chave deve começar com 'gsk_'")
+            else:
+                st.warning("Por favor, insira uma chave válida")
+
+    # Outras configurações do sistema
+    st.markdown("---")
+    st.subheader("Outras Configurações")
+    
+    # Business Message
+    st.text_input(
+        "Mensagem de Serviço no Rodapé",
+        value=st.session_state.settings["BUSINESS_MESSAGE"],
+        key="business_message"
+    )
+    
+    # Process Group Messages
+    st.selectbox(
+        "Processar Mensagens em Grupos",
+        options=["true", "false"],
+        index=["true", "false"].index(st.session_state.settings["PROCESS_GROUP_MESSAGES"]),
+        key="process_group_messages"
+    )
+    
+    # Process Self Messages
+    st.selectbox(
+        "Processar Mensagens Próprias",
+        options=["true", "false"],
+        index=["true", "false"].index(st.session_state.settings["PROCESS_SELF_MESSAGES"]),
+        key="process_self_messages"
+    )
+
+    # Nova seção de configuração de idioma
+    st.markdown("---")
+    st.subheader("🌐 Configuração de Idioma")
+    
+    # Dicionário de idiomas em português
+    IDIOMAS = {
+        "pt": "Português",
+        "en": "Inglês",
+        "es": "Espanhol",
+        "fr": "Francês",
+        "de": "Alemão",
+        "it": "Italiano",
+        "ja": "Japonês",
+        "ko": "Coreano",
+        "zh": "Chinês",
+        "ru": "Russo",
+        "ar": "Árabe",
+        "hi": "Hindi",
+        "nl": "Holandês",
+        "pl": "Polonês",
+        "tr": "Turco"
+    }
+    
+    # Carregar configuração atual de idioma
+    current_language = get_from_redis("TRANSCRIPTION_LANGUAGE", "pt")
+    
+    # Seleção de idioma
+    selected_language = st.selectbox(
+        "Idioma para Transcrição e Resumo",
+        options=list(IDIOMAS.keys()),
+        format_func=lambda x: IDIOMAS[x],
+        index=list(IDIOMAS.keys()).index(current_language) if current_language in IDIOMAS else 0,
+        help="Selecione o idioma para transcrição dos áudios e geração dos resumos",
+        key="transcription_language"
+    )
+
+    # Botão de salvar com feedback visual
+    if st.button("💾 Salvar Todas as Configurações"):
+        try:
+            # Salvar configurações principais
+            save_settings()
+            
+            # Se há uma chave principal, adicionar ao sistema de rodízio
+            if main_key and main_key.startswith("gsk_"):
+                storage.add_groq_key(main_key)
+            
+            # Salvar configuração de idioma
+            save_to_redis("TRANSCRIPTION_LANGUAGE", selected_language)
+            
+            st.success("✅ Todas as configurações foram salvas com sucesso!")
+            
+            # Mostrar resumo das chaves ativas e idioma selecionado
+            total_keys = len(storage.get_groq_keys())
+            st.info(f"""Sistema configurado com {total_keys} chave(s) GROQ no rodízio
+                    Idioma definido: {IDIOMAS[selected_language]}""")
+            
+        except Exception as e:
+            st.error(f"Erro ao salvar configurações: {str(e)}")
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
