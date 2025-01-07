@@ -342,131 +342,251 @@ def manage_blocks():
     else:
         st.info("Nenhum usuário bloqueado.")
 
+# manager.py - Adicionar na seção de configurações
+def message_settings_section():
+    st.subheader("📝 Configurações de Mensagem")
+    
+    # Carregar configurações atuais
+    message_settings = storage.get_message_settings()
+    
+    # Headers personalizados
+    col1, col2 = st.columns(2)
+    with col1:
+        summary_header = st.text_input(
+            "Cabeçalho do Resumo",
+            value=message_settings["summary_header"],
+            help="Formato do cabeçalho para o resumo do áudio"
+        )
+    with col2:
+        transcription_header = st.text_input(
+            "Cabeçalho da Transcrição",
+            value=message_settings["transcription_header"],
+            help="Formato do cabeçalho para a transcrição do áudio"
+        )
+    
+    # Modo de saída
+    output_mode = st.selectbox(
+        "Modo de Saída",
+        options=["both", "summary_only", "transcription_only", "smart"],
+        format_func=lambda x: {
+            "both": "Resumo e Transcrição",
+            "summary_only": "Apenas Resumo",
+            "transcription_only": "Apenas Transcrição",
+            "smart": "Modo Inteligente (baseado no tamanho)"
+        }[x],
+        value=message_settings["output_mode"]
+    )
+    
+    # Configuração do limite de caracteres (visível apenas no modo inteligente)
+    if output_mode == "smart":
+        character_limit = st.number_input(
+            "Limite de Caracteres para Modo Inteligente",
+            min_value=100,
+            max_value=5000,
+            value=int(message_settings["character_limit"]),
+            help="Se a transcrição exceder este limite, será enviado apenas o resumo"
+        )
+    else:
+        character_limit = message_settings["character_limit"]
+    
+    # Botão de salvar
+    if st.button("💾 Salvar Configurações de Mensagem"):
+        try:
+            new_settings = {
+                "summary_header": summary_header,
+                "transcription_header": transcription_header,
+                "output_mode": output_mode,
+                "character_limit": character_limit
+            }
+            storage.save_message_settings(new_settings)
+            st.success("Configurações de mensagem salvas com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao salvar configurações: {str(e)}")
+
 def manage_settings():
     st.title("⚙️ Configurações")
-    st.subheader("Configurações do Sistema")
-
-    # Seção de chaves GROQ com sistema de rodízio
-    st.subheader("🔑 Gerenciamento de Chaves GROQ")
     
-    # Campo para chave principal (mantendo compatibilidade)
-    main_key = st.text_input(
-        "GROQ API Key Principal",
-        value=st.session_state.settings["GROQ_API_KEY"],
-        key="groq_api_key",
-        type="password",
-        help="Chave GROQ principal do sistema"
-    )
-
-    # Seção de chaves adicionais
-    st.markdown("---")
-    st.subheader("Chaves GROQ Adicionais (Sistema de Rodízio)")
+    # Criar tabs para melhor organização
+    tab1, tab2, tab3 = st.tabs(["🔑 Chaves API", "🌐 Configurações Gerais", "📝 Formatação de Mensagens"])
     
-    # Exibir chaves existentes
-    groq_keys = storage.get_groq_keys()
-    if groq_keys:
-        st.write("Chaves configuradas para rodízio:")
-        for key in groq_keys:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                masked_key = f"{key[:10]}...{key[-4:]}"
-                st.code(masked_key, language=None)
-            with col2:
-                if st.button("🗑️", key=f"remove_{key}", help="Remover esta chave"):
-                    storage.remove_groq_key(key)
-                    st.success(f"Chave removida do rodízio!")
-                    st.experimental_rerun()
+    with tab1:
+        st.subheader("Gerenciamento de Chaves GROQ")
+    # Campo para gerenciamento de chaves GROQ
+        main_key = st.text_input(
+            "GROQ API Key Principal",
+            value=st.session_state.settings["GROQ_API_KEY"],
+            key="groq_api_key",
+            type="password",
+            help="Chave GROQ principal do sistema"
+        )
 
-    # Adicionar nova chave
-    new_key = st.text_input(
-        "Adicionar Nova Chave GROQ",
-        key="new_groq_key",
-        type="password",
-        help="Insira uma nova chave GROQ para adicionar ao sistema de rodízio"
-    )
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        if st.button("➕ Adicionar ao Rodízio", help="Adicionar esta chave ao sistema de rodízio"):
-            if new_key:
-                if new_key.startswith("gsk_"):
-                    storage.add_groq_key(new_key)
-                    st.success("Nova chave adicionada ao sistema de rodízio!")
-                    st.experimental_rerun()
+        # Seção de chaves adicionais
+        st.markdown("---")
+        st.subheader("Chaves GROQ Adicionais (Sistema de Rodízio)")
+    
+        # Exibir chaves existentes
+        groq_keys = storage.get_groq_keys()
+        if groq_keys:
+            st.write("Chaves configuradas para rodízio:")
+            for key in groq_keys:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    masked_key = f"{key[:10]}...{key[-4:]}"
+                    st.code(masked_key, language=None)
+                with col2:
+                    if st.button("🗑️", key=f"remove_{key}", help="Remover esta chave"):
+                        storage.remove_groq_key(key)
+                        st.success(f"Chave removida do rodízio!")
+                        st.experimental_rerun()
+
+        # Adicionar nova chave
+        new_key = st.text_input(
+            "Adicionar Nova Chave GROQ",
+            key="new_groq_key",
+            type="password",
+            help="Insira uma nova chave GROQ para adicionar ao sistema de rodízio"
+        )
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            if st.button("➕ Adicionar ao Rodízio", help="Adicionar esta chave ao sistema de rodízio"):
+                if new_key:
+                    if new_key.startswith("gsk_"):
+                        storage.add_groq_key(new_key)
+                        st.success("Nova chave adicionada ao sistema de rodízio!")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Chave inválida! A chave deve começar com 'gsk_'")
                 else:
-                    st.error("Chave inválida! A chave deve começar com 'gsk_'")
-            else:
-                st.warning("Por favor, insira uma chave válida")
+                    st.warning("Por favor, insira uma chave válida")
+        pass
+    
+    with tab2:
+        st.subheader("Configurações do Sistema")
+    
+        # Business Message
+        st.text_input(
+            "Mensagem de Serviço no Rodapé",
+            value=st.session_state.settings["BUSINESS_MESSAGE"],
+            key="business_message"
+        )
+        
+        # Process Group Messages
+        st.selectbox(
+            "Processar Mensagens em Grupos",
+            options=["true", "false"],
+            index=["true", "false"].index(st.session_state.settings["PROCESS_GROUP_MESSAGES"]),
+            key="process_group_messages"
+        )
+        
+        # Process Self Messages
+        st.selectbox(
+            "Processar Mensagens Próprias",
+            options=["true", "false"],
+            index=["true", "false"].index(st.session_state.settings["PROCESS_SELF_MESSAGES"]),
+            key="process_self_messages"
+        )
 
-    # Outras configurações do sistema
-    st.markdown("---")
-    st.subheader("Outras Configurações")
+        # Configuração de idioma
+        st.markdown("---")
+        st.subheader("🌐 Idioma")
     
-    # Business Message
-    st.text_input(
-        "Mensagem de Serviço no Rodapé",
-        value=st.session_state.settings["BUSINESS_MESSAGE"],
-        key="business_message"
-    )
+        # Dicionário de idiomas em português
+        IDIOMAS = {
+            "pt": "Português",
+            "en": "Inglês",
+            "es": "Espanhol",
+            "fr": "Francês",
+            "de": "Alemão",
+            "it": "Italiano",
+            "ja": "Japonês",
+            "ko": "Coreano",
+            "zh": "Chinês",
+            "ro": "Romeno",
+            "ru": "Russo",
+            "ar": "Árabe",
+            "hi": "Hindi",
+            "nl": "Holandês",
+            "pl": "Polonês",
+            "tr": "Turco"
+        }
+        
+        # Carregar configuração atual de idioma
+        current_language = get_from_redis("TRANSCRIPTION_LANGUAGE", "pt")
+        
+        # Seleção de idioma
+        selected_language = st.selectbox(
+            "Idioma para Transcrição e Resumo",
+            options=list(IDIOMAS.keys()),
+            format_func=lambda x: IDIOMAS[x],
+            index=list(IDIOMAS.keys()).index(current_language) if current_language in IDIOMAS else 0,
+            help="Selecione o idioma para transcrição dos áudios e geração dos resumos",
+            key="transcription_language"
+        )
+        pass
     
-    # Process Group Messages
-    st.selectbox(
-        "Processar Mensagens em Grupos",
-        options=["true", "false"],
-        index=["true", "false"].index(st.session_state.settings["PROCESS_GROUP_MESSAGES"]),
-        key="process_group_messages"
-    )
-    
-    # Process Self Messages
-    st.selectbox(
-        "Processar Mensagens Próprias",
-        options=["true", "false"],
-        index=["true", "false"].index(st.session_state.settings["PROCESS_SELF_MESSAGES"]),
-        key="process_self_messages"
-    )
+    with tab3:
+        st.subheader("Formatação de Mensagens")
+        
+        # Headers personalizados
+        col1, col2 = st.columns(2)
+        with col1:
+            summary_header = st.text_input(
+                "Cabeçalho do Resumo",
+                value=get_from_redis("summary_header", "🤖 *Resumo do áudio:*"),
+                key="summary_header",
+                help="Formato do cabeçalho para o resumo do áudio"
+            )
+        with col2:
+            transcription_header = st.text_input(
+                "Cabeçalho da Transcrição",
+                value=get_from_redis("transcription_header", "🔊 *Transcrição do áudio:*"),
+                key="transcription_header",
+                help="Formato do cabeçalho para a transcrição do áudio"
+            )
+        
+        # Modo de saída - Corrigido para usar index
+        output_modes = ["both", "summary_only", "transcription_only", "smart"]
+        output_mode_labels = {
+            "both": "Resumo e Transcrição",
+            "summary_only": "Apenas Resumo",
+            "transcription_only": "Apenas Transcrição",
+            "smart": "Modo Inteligente (baseado no tamanho)"
+        }
+        
+        current_mode = get_from_redis("output_mode", "both")
+        mode_index = output_modes.index(current_mode) if current_mode in output_modes else 0
+        
+        output_mode = st.selectbox(
+            "Modo de Saída",
+            options=output_modes,
+            format_func=lambda x: output_mode_labels[x],
+            index=mode_index,
+            key="output_mode",
+            help="Selecione como deseja que as mensagens sejam enviadas"
+        )
+        
+        if output_mode == "smart":
+            character_limit = st.number_input(
+                "Limite de Caracteres para Modo Inteligente",
+                min_value=100,
+                max_value=5000,
+                value=int(get_from_redis("character_limit", "500")),
+                help="Se a transcrição exceder este limite, será enviado apenas o resumo"
+            )
 
-    # Nova seção de configuração de idioma
-    st.markdown("---")
-    st.subheader("🌐 Configuração de Idioma")
-    
-    # Dicionário de idiomas em português
-    IDIOMAS = {
-        "pt": "Português",
-        "en": "Inglês",
-        "es": "Espanhol",
-        "fr": "Francês",
-        "de": "Alemão",
-        "it": "Italiano",
-        "ja": "Japonês",
-        "ko": "Coreano",
-        "zh": "Chinês",
-        "ro": "Romeno",
-        "ru": "Russo",
-        "ar": "Árabe",
-        "hi": "Hindi",
-        "nl": "Holandês",
-        "pl": "Polonês",
-        "tr": "Turco"
-    }
-    
-    # Carregar configuração atual de idioma
-    current_language = get_from_redis("TRANSCRIPTION_LANGUAGE", "pt")
-    
-    # Seleção de idioma
-    selected_language = st.selectbox(
-        "Idioma para Transcrição e Resumo",
-        options=list(IDIOMAS.keys()),
-        format_func=lambda x: IDIOMAS[x],
-        index=list(IDIOMAS.keys()).index(current_language) if current_language in IDIOMAS else 0,
-        help="Selecione o idioma para transcrição dos áudios e geração dos resumos",
-        key="transcription_language"
-    )
-
-    # Botão de salvar com feedback visual
+    # Botão de salvar unificado
     if st.button("💾 Salvar Todas as Configurações"):
         try:
-            # Salvar configurações principais
+            # Salvar configurações existentes
             save_settings()
             
+            # Salvar novas configurações de mensagem
+            save_to_redis("summary_header", summary_header)
+            save_to_redis("transcription_header", transcription_header)
+            save_to_redis("output_mode", output_mode)
+            if output_mode == "smart":
+                save_to_redis("character_limit", str(character_limit))
+                
             # Se há uma chave principal, adicionar ao sistema de rodízio
             if main_key and main_key.startswith("gsk_"):
                 storage.add_groq_key(main_key)
@@ -476,10 +596,11 @@ def manage_settings():
             
             st.success("✅ Todas as configurações foram salvas com sucesso!")
             
-            # Mostrar resumo das chaves ativas e idioma selecionado
+            # Mostrar resumo
             total_keys = len(storage.get_groq_keys())
             st.info(f"""Sistema configurado com {total_keys} chave(s) GROQ no rodízio
-                    Idioma definido: {IDIOMAS[selected_language]}""")
+                    Idioma definido: {IDIOMAS[selected_language]}
+                    Modo de saída: {output_mode_labels[output_mode]}""")
             
         except Exception as e:
             st.error(f"Erro ao salvar configurações: {str(e)}")

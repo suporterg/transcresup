@@ -108,21 +108,42 @@ async def transcreve_audios(request: Request):
                     "source": audio_source
                 })
 
+            # Carregar configurações de formatação
+            output_mode = get_config("output_mode", "both")
+            summary_header = get_config("summary_header", "🤖 *Resumo do áudio:*")
+            transcription_header = get_config("transcription_header", "🔊 *Transcrição do áudio:*")
+            character_limit = int(get_config("character_limit", "500"))
+
             # Transcrever áudio
             storage.add_log("INFO", "Iniciando transcrição")
             transcription_text, _ = await transcribe_audio(audio_source)
             
-            # Resumir se necessário
-            summary_text = await summarize_text_if_needed(transcription_text)
+            # Determinar se precisa de resumo baseado no modo de saída
+            summary_text = None
+            if output_mode in ["both", "summary_only"] or (
+                output_mode == "smart" and len(transcription_text) > character_limit
+            ):
+                summary_text = await summarize_text_if_needed(transcription_text)
+
+            # Construir mensagem baseada no modo de saída
+            message_parts = []
             
-            # Formatar mensagem
-            summary_message = (
-                f"🤖 *Resumo do áudio:*\n\n"
-                f"{summary_text}\n\n"
-                f"🔊 *Transcrição do áudio:*\n\n"
-                f"{transcription_text}\n\n"
-                f"{dynamic_settings['BUSINESS_MESSAGE']}"
-            )
+            if output_mode == "smart":
+                if len(transcription_text) > character_limit:
+                    message_parts.append(f"{summary_header}\n\n{summary_text}")
+                else:
+                    message_parts.append(f"{transcription_header}\n\n{transcription_text}")
+            else:
+                if output_mode in ["both", "summary_only"] and summary_text:
+                    message_parts.append(f"{summary_header}\n\n{summary_text}")
+                if output_mode in ["both", "transcription_only"]:
+                    message_parts.append(f"{transcription_header}\n\n{transcription_text}")
+            
+            # Adicionar mensagem de negócio
+            message_parts.append(dynamic_settings['BUSINESS_MESSAGE'])
+            
+            # Juntar todas as partes da mensagem
+            summary_message = "\n\n".join(message_parts)            
 
             # Enviar resposta
             await send_message_to_whatsapp(

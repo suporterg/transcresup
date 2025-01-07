@@ -356,3 +356,34 @@ async def get_audio_base64(server_url, instance, apikey, message_id):
             "message_id": message_id
         })
         raise
+    
+async def format_message(transcription_text, summary_text=None):
+    """Formata a mensagem baseado nas configurações."""
+    settings = storage.get_message_settings()
+    message_parts = []
+    
+    # Determinar modo de saída
+    output_mode = settings["output_mode"]
+    char_limit = int(settings["character_limit"])
+    
+    if output_mode == "smart":
+        # Modo inteligente baseado no tamanho
+        if len(transcription_text) > char_limit:
+            if summary_text:
+                message_parts.append(f"{settings['summary_header']}\n\n{summary_text}")
+        else:
+            message_parts.append(f"{settings['transcription_header']}\n\n{transcription_text}")
+    elif output_mode == "summary_only":
+        if summary_text:
+            message_parts.append(f"{settings['summary_header']}\n\n{summary_text}")
+    elif output_mode == "transcription_only":
+        message_parts.append(f"{settings['transcription_header']}\n\n{transcription_text}")
+    else:  # both
+        if summary_text:
+            message_parts.append(f"{settings['summary_header']}\n\n{summary_text}")
+        message_parts.append(f"{settings['transcription_header']}\n\n{transcription_text}")
+    
+    # Adicionar mensagem de negócio
+    message_parts.append(dynamic_settings['BUSINESS_MESSAGE'])
+    
+    return "\n\n".join(message_parts)

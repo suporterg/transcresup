@@ -200,3 +200,17 @@ class StorageHandler:
         self.redis.set(self._get_redis_key("groq_key_counter"), str(next_counter))
         
         return keys[counter % len(keys)]
+    
+    def get_message_settings(self):
+        """Obtém as configurações de mensagens."""
+        return {
+            "summary_header": self.redis.get(self._get_redis_key("summary_header")) or "🤖 *Resumo do áudio:*",
+            "transcription_header": self.redis.get(self._get_redis_key("transcription_header")) or "🔊 *Transcrição do áudio:*",
+            "output_mode": self.redis.get(self._get_redis_key("output_mode")) or "both",
+            "character_limit": int(self.redis.get(self._get_redis_key("character_limit")) or "500"),
+        }
+
+    def save_message_settings(self, settings: dict):
+        """Salva as configurações de mensagens."""
+        for key, value in settings.items():
+            self.redis.set(self._get_redis_key(key), str(value))
