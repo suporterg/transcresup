@@ -217,4 +217,6 @@ class StorageHandler:
             
     def get_process_mode(self):
         """Retorna o modo de processamento configurado"""
-        return self.redis.get(self._get_redis_key("process_mode")) or "all"
+        mode = self.redis.get(self._get_redis_key("process_mode")) or "all"
+        self.logger.debug(f"Modo de processamento atual: {mode}")
+        return mode

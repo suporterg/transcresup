@@ -488,7 +488,7 @@ def manage_settings():
 
         st.subheader("🔄 Modo de Processamento")
         # Obter o modo atual do Redis
-        current_mode = get_from_redis("process_mode", "all")
+        current_mode = storage.get_process_mode()
         # Definir as opções e seus rótulos
         mode_options = ["all", "groups_only"]
         mode_labels = {
@@ -616,7 +616,7 @@ def manage_settings():
             save_to_redis("TRANSCRIPTION_LANGUAGE", selected_language)
             
             # Salvamento do modo de processamento
-            save_to_redis("process_mode", process_mode)
+            storage.redis.set(storage._get_redis_key("process_mode"), process_mode)
             
             st.success("✅ Todas as configurações foram salvas com sucesso!")
             

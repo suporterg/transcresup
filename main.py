@@ -94,7 +94,8 @@ async def transcreve_audios(request: Request):
         if process_mode == "groups_only" and not is_group:
             storage.add_log("INFO", "Mensagem ignorada - modo apenas grupos ativo", {
                 "remote_jid": remote_jid,
-                "process_mode": process_mode
+                "process_mode": process_mode,
+                "is_group": is_group
             })
             return {"message": "Modo apenas grupos ativo - mensagens privadas ignoradas"}
 
