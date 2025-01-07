@@ -171,16 +171,26 @@ async def summarize_text_if_needed(text):
         raise
 
 async def transcribe_audio(audio_source, apikey=None):
-    """Transcreve áudio usando a API GROQ com sistema de rodízio de chaves"""
+    """
+    Transcreve áudio usando a API GROQ com sistema de rodízio de chaves.
+    
+    Args:
+        audio_source: Caminho do arquivo de áudio ou URL
+        apikey: Chave da API opcional para download de áudio
+        
+    Returns:
+        tuple: (texto_transcrito, False)
+    """
     storage.add_log("INFO", "Iniciando processo de transcrição")
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
     groq_key = await get_groq_key()
     groq_headers = {"Authorization": f"Bearer {groq_key}"}
+    
     # Obter idioma configurado
     language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
     storage.add_log("DEBUG", "Idioma configurado para transcrição", {
-    "language": language,
-    "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
+        "language": language,
+        "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
     })
     
     try:
@@ -219,20 +229,12 @@ async def transcribe_audio(audio_source, apikey=None):
             async with session.post(url, headers=groq_headers, data=data) as response:
                 if response.status == 200:
                     result = await response.json()
-                    message = result.get("text", "")
+                    transcription = result.get("text", "")
                     storage.add_log("INFO", "Transcrição concluída com sucesso", {
-                        "text_length": len(message)
+                        "text_length": len(transcription)
                     })
-
-                    is_summary = False
-                    if len(message) > 1000:
-                        storage.add_log("DEBUG", "Texto longo detectado, iniciando resumo", {
-                            "text_length": len(message)
-                        })
-                        is_summary = True
-                        message = await summarize_text_if_needed(message)
-
-                    return message, is_summary
+                    
+                    return transcription, False
                 else:
                     error_text = await response.text()
                     storage.add_log("ERROR", "Erro na transcrição", {
@@ -251,7 +253,6 @@ async def transcribe_audio(audio_source, apikey=None):
         # Limpar arquivos temporários
         if isinstance(audio_source, str) and os.path.exists(audio_source):
             os.unlink(audio_source)
-
 async def send_message_to_whatsapp(server_url, instance, apikey, message, remote_jid, message_id):
     """Envia mensagem via WhatsApp"""
     storage.add_log("DEBUG", "Preparando envio de mensagem", {
