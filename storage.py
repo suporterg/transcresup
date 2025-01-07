@@ -214,3 +214,7 @@ class StorageHandler:
         """Salva as configurações de mensagens."""
         for key, value in settings.items():
             self.redis.set(self._get_redis_key(key), str(value))
+            
+    def get_process_mode(self):
+        """Retorna o modo de processamento configurado"""
+        return self.redis.get(self._get_redis_key("process_mode")) or "all"

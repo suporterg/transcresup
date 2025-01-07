@@ -87,6 +87,17 @@ async def transcreve_audios(request: Request):
             )
             return {"message": "Mensagem não autorizada para processamento"}
 
+        # Verificação do modo de processamento (grupos/todos)
+        process_mode = storage.get_process_mode()
+        is_group = "@g.us" in remote_jid
+        
+        if process_mode == "groups_only" and not is_group:
+            storage.add_log("INFO", "Mensagem ignorada - modo apenas grupos ativo", {
+                "remote_jid": remote_jid,
+                "process_mode": process_mode
+            })
+            return {"message": "Modo apenas grupos ativo - mensagens privadas ignoradas"}
+
         if from_me and not dynamic_settings["PROCESS_SELF_MESSAGES"]:
             storage.add_log("INFO", "Mensagem própria ignorada", {
                 "remote_jid": remote_jid

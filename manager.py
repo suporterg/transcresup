@@ -486,6 +486,27 @@ def manage_settings():
             key="process_self_messages"
         )
 
+        st.subheader("🔄 Modo de Processamento")
+        # Obter o modo atual do Redis
+        current_mode = get_from_redis("process_mode", "all")
+        # Definir as opções e seus rótulos
+        mode_options = ["all", "groups_only"]
+        mode_labels = {
+            "all": "Todos (Grupos e Privado)",
+            "groups_only": "Apenas Grupos"
+        }
+        # Calcular o índice atual baseado no valor do Redis
+        current_index = mode_options.index(current_mode) if current_mode in mode_options else 0
+
+        process_mode = st.selectbox(
+            "Processar mensagens de:",
+            options=mode_options,
+            format_func=lambda x: mode_labels[x],
+            index=current_index,
+            key="process_mode",
+            help="Escolha se deseja processar mensagens de todos os contatos ou apenas de grupos"
+        )
+
         # Configuração de idioma
         st.markdown("---")
         st.subheader("🌐 Idioma")
@@ -593,6 +614,9 @@ def manage_settings():
             
             # Salvar configuração de idioma
             save_to_redis("TRANSCRIPTION_LANGUAGE", selected_language)
+            
+            # Salvamento do modo de processamento
+            save_to_redis("process_mode", process_mode)
             
             st.success("✅ Todas as configurações foram salvas com sucesso!")
             
