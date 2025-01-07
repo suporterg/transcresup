@@ -1,10 +1,15 @@
 # Usar uma imagem oficial do Python como base
 FROM python:3.10-slim
 
-# Instalar dependências do sistema, incluindo redis-tools
+# Instalar dependências do sistema, incluindo redis-tools e tzdata para fuso horário
 RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-tools \
+    tzdata \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Configurar o fuso horário
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Definir o diretório de trabalho
 WORKDIR /app

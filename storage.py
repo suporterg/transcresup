@@ -31,6 +31,13 @@ class StorageHandler:
         self.log_retention_hours = int(os.getenv('LOG_RETENTION_HOURS', 48))
         self.backup_retention_days = int(os.getenv('BACKUP_RETENTION_DAYS', 7))
 
+        # Garantir valores padrão para configurações de idioma
+        if not self.redis.exists(self._get_redis_key("auto_translation")):
+            self.redis.set(self._get_redis_key("auto_translation"), "false")
+        
+        if not self.redis.exists(self._get_redis_key("auto_language_detection")):
+            self.redis.set(self._get_redis_key("auto_language_detection"), "false")
+        
     def _get_redis_key(self, key):
         return f"transcrevezap:{key}"
 

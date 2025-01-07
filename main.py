@@ -183,8 +183,8 @@ async def transcreve_audios(request: Request):
             storage.record_processing(remote_jid)
             storage.add_log("INFO", "Áudio processado com sucesso", {
                 "remote_jid": remote_jid,
-                "transcription_length": len(transcription_text),
-                "summary_length": len(summary_text)
+                "transcription_length": len(transcription_text) if transcription_text else 0,
+                "summary_length": len(summary_text) if summary_text else 0  # Adiciona verificação
             })
 
             return {"message": "Áudio transcrito e resposta enviada com sucesso"}
