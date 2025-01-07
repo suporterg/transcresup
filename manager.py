@@ -11,6 +11,26 @@ import redis
 # Conectar ao Redis
 redis_client = redis.Redis(host=os.getenv('REDIS_HOST', 'localhost'), port=int(os.getenv('REDIS_PORT', 6380)), decode_responses=True)
 
+# Dicionário de idiomas em português
+IDIOMAS = {
+    "pt": "Português",
+    "en": "Inglês",
+    "es": "Espanhol",
+    "fr": "Francês",
+    "de": "Alemão",
+    "it": "Italiano",
+    "ja": "Japonês",
+    "ko": "Coreano",
+    "zh": "Chinês",
+    "ro": "Romeno",
+    "ru": "Russo",
+    "ar": "Árabe",
+    "hi": "Hindi",
+    "nl": "Holandês",
+    "pl": "Polonês",
+    "tr": "Turco"
+}
+
 # Função para salvar configurações no Redis
 def save_to_redis(key, value):
     try:
@@ -403,11 +423,65 @@ def message_settings_section():
         except Exception as e:
             st.error(f"Erro ao salvar configurações: {str(e)}")
 
+def show_language_statistics():
+    """Exibe estatísticas de uso de idiomas"""
+    stats = storage.get_language_statistics()
+    
+    if not stats:
+        st.info("Ainda não há estatísticas de uso de idiomas.")
+        return
+    
+    # Resumo geral
+    st.subheader("📊 Estatísticas de Idiomas")
+    
+    # Criar métricas resumidas
+    total_usage = sum(s.get('total', 0) for s in stats.values())
+    auto_detected = sum(s.get('auto_detected', 0) for s in stats.values())
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total de Transcrições", total_usage)
+    with col2:
+        st.metric("Detecções Automáticas", auto_detected)
+    with col3:
+        st.metric("Idiomas Diferentes", len(stats))
+    
+    # Gráfico de uso por idioma
+    usage_data = []
+    for lang, data in stats.items():
+        usage_data.append({
+            'Idioma': IDIOMAS.get(lang, lang),
+            'Total': data.get('total', 0),
+            'Enviados': data.get('sent', 0),
+            'Recebidos': data.get('received', 0),
+            'Auto-detectados': data.get('auto_detected', 0)
+        })
+    
+    if usage_data:
+        df = pd.DataFrame(usage_data)
+        
+        # Gráfico de barras empilhadas
+        fig = px.bar(df, 
+                    x='Idioma',
+                    y=['Enviados', 'Recebidos'],
+                    title='Uso por Idioma',
+                    barmode='stack')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Tabela detalhada
+        st.subheader("📋 Detalhamento por Idioma")
+        st.dataframe(df.sort_values('Total', ascending=False))
+
 def manage_settings():
     st.title("⚙️ Configurações")
     
     # Criar tabs para melhor organização
-    tab1, tab2, tab3 = st.tabs(["🔑 Chaves API", "🌐 Configurações Gerais", "📝 Formatação de Mensagens"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🔑 Chaves API", 
+        "🌐 Configurações Gerais", 
+        "📝 Formatação de Mensagens",
+        "🗣️ Idiomas e Transcrição"
+    ])
     
     with tab1:
         st.subheader("Gerenciamento de Chaves GROQ")
@@ -510,27 +584,6 @@ def manage_settings():
         # Configuração de idioma
         st.markdown("---")
         st.subheader("🌐 Idioma")
-    
-        # Dicionário de idiomas em português
-        IDIOMAS = {
-            "pt": "Português",
-            "en": "Inglês",
-            "es": "Espanhol",
-            "fr": "Francês",
-            "de": "Alemão",
-            "it": "Italiano",
-            "ja": "Japonês",
-            "ko": "Coreano",
-            "zh": "Chinês",
-            "ro": "Romeno",
-            "ru": "Russo",
-            "ar": "Árabe",
-            "hi": "Hindi",
-            "nl": "Holandês",
-            "pl": "Polonês",
-            "tr": "Turco"
-        }
-        
         # Carregar configuração atual de idioma
         current_language = get_from_redis("TRANSCRIPTION_LANGUAGE", "pt")
         
@@ -629,6 +682,118 @@ def manage_settings():
         except Exception as e:
             st.error(f"Erro ao salvar configurações: {str(e)}")
 
+    
+    with tab4:
+        st.subheader("Idiomas e Transcrição")
+        
+        # Adicionar estatísticas no topo
+        show_language_statistics()
+        
+        # Seção de Detecção Automática
+        st.markdown("---")
+        st.markdown("### 🔄 Detecção Automática de Idioma")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            auto_detect = st.toggle(
+                "Ativar detecção automática",
+                value=storage.get_auto_language_detection(),
+                help="Detecta e configura automaticamente o idioma dos contatos"
+            )
+        
+        if auto_detect:
+            st.info("""
+            A detecção automática de idioma:
+            1. Analisa o primeiro áudio de cada contato
+            2. Configura o idioma automaticamente
+            3. Usa cache de 24 horas para otimização
+            4. Funciona apenas em conversas privadas
+            5. Mantém o idioma global para grupos
+            6. Permite tradução automática entre idiomas
+            """)
+        
+        # Seção de Timestamps
+        st.markdown("---")
+        st.markdown("### ⏱️ Timestamps na Transcrição")
+        use_timestamps = st.toggle(
+            "Incluir timestamps",
+            value=get_from_redis("use_timestamps", "false") == "true",
+            help="Adiciona marcadores de tempo em cada trecho"
+        )
+        
+        if use_timestamps:
+            st.info("Os timestamps serão mostrados no formato [MM:SS] para cada trecho da transcrição")
+        
+        # Seção de Configuração Manual de Idiomas por Contato
+        st.markdown("---")
+        st.markdown("### 👥 Idiomas por Contato")
+        
+        # Obter contatos configurados
+        contact_languages = storage.get_all_contact_languages()
+        
+        # Adicionar novo contato
+        with st.expander("➕ Adicionar Novo Contato", expanded=not bool(contact_languages)):
+            new_contact = st.text_input(
+                "Número do Contato",
+                placeholder="Ex: 5521999999999",
+                help="Digite apenas números, sem símbolos ou @s.whatsapp.net"
+            )
+            
+            new_language = st.selectbox(
+                "Idioma do Contato",
+                options=list(IDIOMAS.keys()),
+                format_func=lambda x: IDIOMAS[x],
+                help="Idioma para transcrição dos áudios deste contato"
+            )
+            
+            if st.button("Adicionar Contato"):
+                if new_contact and new_contact.isdigit():
+                    storage.set_contact_language(new_contact, new_language)
+                    st.success(f"✅ Contato configurado com idioma {IDIOMAS[new_language]}")
+                    st.experimental_rerun()
+                else:
+                    st.error("Por favor, insira um número válido")
+        
+        # Listar contatos configurados
+        if contact_languages:
+            st.markdown("### Contatos Configurados")
+            for contact, language in contact_languages.items():
+                col1, col2, col3 = st.columns([2, 2, 1])
+                with col1:
+                    st.text(f"+{contact}")
+                with col2:
+                    current_language = st.selectbox(
+                        "Idioma",
+                        options=list(IDIOMAS.keys()),
+                        format_func=lambda x: IDIOMAS[x],
+                        key=f"lang_{contact}",
+                        index=list(IDIOMAS.keys()).index(language) if language in IDIOMAS else 0
+                    )
+                    if current_language != language:
+                        storage.set_contact_language(contact, current_language)
+                with col3:
+                    if st.button("🗑️", key=f"remove_{contact}"):
+                        storage.remove_contact_language(contact)
+                        st.success("Contato removido")
+                        st.experimental_rerun()
+        
+        # Botão de Salvar
+        if st.button("💾 Salvar Configurações de Idioma e Transcrição"):
+            try:
+                storage.set_auto_language_detection(auto_detect)
+                save_to_redis("use_timestamps", str(use_timestamps).lower())
+                st.success("✅ Configurações salvas com sucesso!")
+                
+                # Mostrar resumo das configurações
+                st.info(f"""
+                Configurações atuais:
+                - Detecção automática: {'Ativada' if auto_detect else 'Desativada'}
+                - Timestamps: {'Ativados' if use_timestamps else 'Desativados'}
+                - Contatos configurados: {len(contact_languages)}
+                """)
+            except Exception as e:
+                st.error(f"Erro ao salvar configurações: {str(e)}")
+                
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 

@@ -126,10 +126,22 @@ async def transcreve_audios(request: Request):
             transcription_header = get_config("transcription_header", "🔊 *Transcrição do áudio:*")
             character_limit = int(get_config("character_limit", "500"))
 
+            # Verificar se timestamps estão habilitados
+            use_timestamps = get_config("use_timestamps", "false") == "true"
             # Transcrever áudio
             storage.add_log("INFO", "Iniciando transcrição")
-            transcription_text, _ = await transcribe_audio(audio_source)
-            
+            transcription_text, has_timestamps = await transcribe_audio(
+                audio_source,
+                apikey=apikey,
+                remote_jid=remote_jid,
+                use_timestamps=use_timestamps
+            )
+            # Log do resultado
+            storage.add_log("INFO", "Transcrição concluída", {
+                "has_timestamps": has_timestamps,
+                "text_length": len(transcription_text),
+                "remote_jid": remote_jid
+            })
             # Determinar se precisa de resumo baseado no modo de saída
             summary_text = None
             if output_mode in ["both", "summary_only"] or (

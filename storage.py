@@ -220,3 +220,168 @@ class StorageHandler:
         mode = self.redis.get(self._get_redis_key("process_mode")) or "all"
         self.logger.debug(f"Modo de processamento atual: {mode}")
         return mode
+
+    def get_contact_language(self, contact_id: str) -> str:
+        """
+        Obtém o idioma configurado para um contato específico.
+        O contact_id pode vir com ou sem @s.whatsapp.net
+        """
+        # Remover @s.whatsapp.net se presente
+        contact_id = contact_id.split('@')[0]
+        return self.redis.hget(self._get_redis_key("contact_languages"), contact_id)
+
+    def set_contact_language(self, contact_id: str, language: str):
+        """
+        Define o idioma para um contato específico
+        """
+        # Remover @s.whatsapp.net se presente
+        contact_id = contact_id.split('@')[0]
+        self.redis.hset(self._get_redis_key("contact_languages"), contact_id, language)
+        self.logger.info(f"Idioma {language} definido para o contato {contact_id}")
+
+    def get_all_contact_languages(self) -> dict:
+        """
+        Retorna um dicionário com todos os contatos e seus idiomas configurados
+        """
+        return self.redis.hgetall(self._get_redis_key("contact_languages"))
+
+    def remove_contact_language(self, contact_id: str):
+        """
+        Remove a configuração de idioma de um contato
+        """
+        contact_id = contact_id.split('@')[0]
+        self.redis.hdel(self._get_redis_key("contact_languages"), contact_id)
+        self.logger.info(f"Configuração de idioma removida para o contato {contact_id}")
+
+    def get_auto_language_detection(self) -> bool:
+        """
+        Verifica se a detecção automática de idioma está ativada
+        """
+        return self.redis.get(self._get_redis_key("auto_language_detection")) == "true"
+
+    def set_auto_language_detection(self, enabled: bool):
+        """
+        Ativa ou desativa a detecção automática de idioma
+        """
+        self.redis.set(self._get_redis_key("auto_language_detection"), str(enabled).lower())
+        self.logger.info(f"Detecção automática de idioma {'ativada' if enabled else 'desativada'}")
+
+    def get_auto_translation(self) -> bool:
+        """
+        Verifica se a tradução automática está ativada
+        """
+        return self.redis.get(self._get_redis_key("auto_translation")) == "true"
+
+    def set_auto_translation(self, enabled: bool):
+        """
+        Ativa ou desativa a tradução automática
+        """
+        self.redis.set(self._get_redis_key("auto_translation"), str(enabled).lower())
+        self.logger.info(f"Tradução automática {'ativada' if enabled else 'desativada'}")
+        
+    def record_language_usage(self, language: str, from_me: bool, auto_detected: bool = False):
+        """
+        Registra estatísticas de uso de idiomas
+        Args:
+            language: Código do idioma (ex: 'pt', 'en')
+            from_me: Se o áudio foi enviado por nós
+            auto_detected: Se o idioma foi detectado automaticamente
+        """
+        try:
+            # Incrementar contagem total do idioma
+            self.redis.hincrby(
+                self._get_redis_key("language_stats"),
+                f"{language}_total",
+                1
+            )
+            
+            # Incrementar contagem por direção (enviado/recebido)
+            self.redis.hincrby(
+                self._get_redis_key("language_stats"),
+                f"{language}_{'sent' if from_me else 'received'}",
+                1
+            )
+            
+            # Se foi detecção automática, registrar
+            if auto_detected:
+                self.redis.hincrby(
+                    self._get_redis_key("language_stats"),
+                    f"{language}_auto_detected",
+                    1
+                )
+            
+            # Registrar última utilização
+            self.redis.hset(
+                self._get_redis_key("language_stats"),
+                f"{language}_last_used",
+                datetime.now().isoformat()
+            )
+
+        except Exception as e:
+            self.logger.error(f"Erro ao registrar uso de idioma: {e}")
+
+    def get_language_statistics(self) -> Dict:
+        """
+        Obtém estatísticas de uso de idiomas
+        """
+        try:
+            stats_raw = self.redis.hgetall(self._get_redis_key("language_stats"))
+            
+            # Organizar estatísticas por idioma
+            stats = {}
+            for key, value in stats_raw.items():
+                lang, metric = key.split('_', 1)
+                
+                if lang not in stats:
+                    stats[lang] = {}
+                
+                if metric == 'last_used':
+                    stats[lang][metric] = value
+                else:
+                    stats[lang][metric] = int(value)
+            
+            return stats
+        except Exception as e:
+            self.logger.error(f"Erro ao obter estatísticas de idioma: {e}")
+            return {}
+
+    def cache_language_detection(self, contact_id: str, language: str, confidence: float = 1.0):
+        """
+        Armazena em cache o idioma detectado para um contato
+        """
+        contact_id = contact_id.split('@')[0]
+        cache_data = {
+            'language': language,
+            'confidence': confidence,
+            'timestamp': datetime.now().isoformat(),
+            'auto_detected': True
+        }
+        self.redis.hset(
+            self._get_redis_key("language_detection_cache"),
+            contact_id,
+            json.dumps(cache_data)
+        )
+
+    def get_cached_language(self, contact_id: str) -> Dict:
+        """
+        Obtém o idioma em cache para um contato
+        Retorna None se não houver cache ou se estiver expirado
+        """
+        contact_id = contact_id.split('@')[0]
+        cached = self.redis.hget(
+            self._get_redis_key("language_detection_cache"),
+            contact_id
+        )
+        
+        if not cached:
+            return None
+            
+        try:
+            data = json.loads(cached)
+            # Verificar se o cache expirou (24 horas)
+            cache_time = datetime.fromisoformat(data['timestamp'])
+            if datetime.now() - cache_time > timedelta(hours=24):
+                return None
+            return data
+        except:
+            return None

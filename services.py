@@ -170,29 +170,50 @@ async def summarize_text_if_needed(text):
         })
         raise
 
-async def transcribe_audio(audio_source, apikey=None):
+async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=False, use_timestamps=False):
     """
-    Transcreve áudio usando a API GROQ com sistema de rodízio de chaves.
+    Transcreve áudio usando a API GROQ com suporte a cache de idioma e estatísticas.
     
     Args:
         audio_source: Caminho do arquivo de áudio ou URL
         apikey: Chave da API opcional para download de áudio
+        remote_jid: ID do remetente/destinatário
+        use_timestamps: Se True, usa verbose_json para incluir timestamps
         
     Returns:
-        tuple: (texto_transcrito, False)
+        tuple: (texto_transcrito, has_timestamps)
     """
     storage.add_log("INFO", "Iniciando processo de transcrição")
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
     groq_key = await get_groq_key()
     groq_headers = {"Authorization": f"Bearer {groq_key}"}
     
-    # Obter idioma configurado
-    language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
+    # Determinar idioma baseado no contexto
+    language = None
+    auto_detected = False
+    is_private = remote_jid and "@s.whatsapp.net" in remote_jid
+    
+    if is_private:
+        # Verificar cache primeiro
+        cached_lang = storage.get_cached_language(remote_jid)
+        if cached_lang:
+            language = cached_lang['language']
+            storage.add_log("DEBUG", "Usando idioma em cache", cached_lang)
+        else:
+            # Verificar configuração manual
+            language = storage.get_contact_language(remote_jid)
+    
+    # Se não houver idioma definido, usar o global
+    if not language:
+        language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
+    
     storage.add_log("DEBUG", "Idioma configurado para transcrição", {
         "language": language,
-        "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
+        "remote_jid": remote_jid,
+        "from_me": from_me,
+        "auto_detected": auto_detected
     })
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             # Se o audio_source for uma URL
@@ -219,29 +240,60 @@ async def transcribe_audio(audio_source, apikey=None):
                         "path": audio_source
                     })
 
-            # Preparar dados para transcrição
-            data = aiohttp.FormData()
-            data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
-            data.add_field('model', 'whisper-large-v3')
-            data.add_field('language', language)
+        # Preparar dados para transcrição
+        data = aiohttp.FormData()
+        data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
+        data.add_field('model', 'whisper-large-v3')
+        data.add_field('language', language)
+        
+        if use_timestamps:
+            data.add_field('response_format', 'verbose_json')
 
-            storage.add_log("DEBUG", "Enviando áudio para transcrição")
-            async with session.post(url, headers=groq_headers, data=data) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    transcription = result.get("text", "")
-                    storage.add_log("INFO", "Transcrição concluída com sucesso", {
-                        "text_length": len(transcription)
-                    })
-                    
-                    return transcription, False
-                else:
-                    error_text = await response.text()
-                    storage.add_log("ERROR", "Erro na transcrição", {
-                        "error": error_text,
-                        "status": response.status
-                    })
-                    raise Exception(f"Erro na transcrição: {error_text}")
+        storage.add_log("DEBUG", "Enviando áudio para transcrição")
+        
+        # Nova sessão para cada requisição
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, headers=groq_headers, data=data) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # Processar resposta baseado no formato
+                        if use_timestamps:
+                            transcription = format_timestamped_result(result)
+                        else:
+                            transcription = result.get("text", "")
+                        
+                        # Detecção automática de idioma se necessário
+                        if (is_private and storage.get_auto_language_detection() and 
+                            not from_me and not cached_lang and not language):
+                            try:
+                                detected_lang = await detect_language(transcription)
+                                storage.cache_language_detection(remote_jid, detected_lang)
+                                auto_detected = True
+                                language = detected_lang
+                            except Exception as e:
+                                storage.add_log("WARNING", "Erro na detecção automática de idioma", {
+                                    "error": str(e)
+                                })
+                        
+                        # Registrar estatísticas
+                        storage.record_language_usage(language, from_me, auto_detected)
+                        
+                        return transcription, use_timestamps
+                    else:
+                        error_text = await response.text()
+                        storage.add_log("ERROR", "Erro na transcrição", {
+                            "error": error_text,
+                            "status": response.status
+                        })
+                        raise Exception(f"Erro na transcrição: {error_text}")
+            except Exception as e:
+                storage.add_log("ERROR", "Erro na requisição HTTP", {
+                    "error": str(e),
+                    "type": type(e).__name__
+                })
+                raise
 
     except Exception as e:
         storage.add_log("ERROR", "Erro no processo de transcrição", {
@@ -253,6 +305,91 @@ async def transcribe_audio(audio_source, apikey=None):
         # Limpar arquivos temporários
         if isinstance(audio_source, str) and os.path.exists(audio_source):
             os.unlink(audio_source)
+
+def format_timestamped_result(result):
+    """
+    Formata o resultado da transcrição com timestamps
+    """
+    segments = result.get("segments", [])
+    formatted_lines = []
+    
+    for segment in segments:
+        start_time = format_timestamp(segment.get("start", 0))
+        end_time = format_timestamp(segment.get("end", 0))
+        text = segment.get("text", "").strip()
+        
+        if text:
+            formatted_lines.append(f"[{start_time} -> {end_time}] {text}")
+    
+    return "\n".join(formatted_lines)
+
+def format_timestamp(seconds):
+    """
+    Converte segundos em formato MM:SS
+    """
+    minutes = int(seconds // 60)
+    remaining_seconds = int(seconds % 60)
+    return f"{minutes:02d}:{remaining_seconds:02d}"
+
+# Função para detecção de idioma
+async def detect_language(text: str) -> str:
+    """
+    Detecta o idioma do texto usando a API GROQ
+    """
+    storage.add_log("DEBUG", "Iniciando detecção de idioma", {
+        "text_length": len(text)
+    })
+    
+    url_completions = "https://api.groq.com/openai/v1/chat/completions"
+    groq_key = await get_groq_key()
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json",
+    }
+    
+    # Prompt para detecção de idioma que retorna apenas o código ISO 639-1
+    prompt = """
+    Detecte o idioma principal do texto e retorne APENAS o código ISO 639-1 correspondente.
+    Exemplos de códigos: pt (português), en (inglês), es (espanhol), fr (francês), etc.
+    IMPORTANTE: Retorne APENAS o código de 2 letras, nada mais.
+
+    Texto para análise:
+    """
+    
+    json_data = {
+        "messages": [{
+            "role": "user",
+            "content": f"{prompt}\n\n{text}",
+        }],
+        "model": "llama-3.3-70b-versatile",
+        "temperature": 0.1,  # Baixa temperatura para resposta mais consistente
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            storage.add_log("DEBUG", "Enviando requisição para API GROQ - Detecção de idioma")
+            async with session.post(url_completions, headers=headers, json=json_data) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    detected_language = result["choices"][0]["message"]["content"].strip().lower()
+                    storage.add_log("INFO", "Idioma detectado com sucesso", {
+                        "detected_language": detected_language
+                    })
+                    return detected_language
+                else:
+                    error_text = await response.text()
+                    storage.add_log("ERROR", "Erro na detecção de idioma", {
+                        "error": error_text,
+                        "status": response.status
+                    })
+                    raise Exception(f"Erro na detecção de idioma: {error_text}")
+    except Exception as e:
+        storage.add_log("ERROR", "Erro no processo de detecção de idioma", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
+        raise
+
 async def send_message_to_whatsapp(server_url, instance, apikey, message, remote_jid, message_id):
     """Envia mensagem via WhatsApp"""
     storage.add_log("DEBUG", "Preparando envio de mensagem", {
