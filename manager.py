@@ -7,9 +7,123 @@ import plotly.express as px
 import os
 import redis
 
+# 1. Primeiro: Configuração da página
+st.set_page_config(
+    page_title="TranscreveZAP by Impacte AI",
+    page_icon="🎙️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# Conectar ao Redis
-redis_client = redis.Redis(host=os.getenv('REDIS_HOST', 'localhost'), port=int(os.getenv('REDIS_PORT', 6380)), decode_responses=True)
+# 2. Depois: Inicialização do Redis
+redis_client = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'localhost'),
+    port=int(os.getenv('REDIS_PORT', 6380)),
+    decode_responses=True
+)
+
+# 3. Funções de sessão (atualizado para usar st.query_params)
+def init_session():
+    """Inicializa o sistema de sessão"""
+    if 'session_id' not in st.session_state:
+        # Verificar se existe uma sessão válida no Redis
+        session_token = st.query_params.get('session', None)
+        if session_token:
+            session_data = redis_client.get(f"session:{session_token}")
+            if session_data:
+                st.session_state.session_id = session_token
+                st.session_state.authenticated = True
+                return
+        
+        # Se não houver sessão válida, gerar um novo ID
+        st.session_state.session_id = None
+        st.session_state.authenticated = False
+
+# Garantir que init_session seja chamado antes de qualquer coisa
+init_session()
+
+def create_session():
+    """Cria uma nova sessão no Redis"""
+    import uuid
+    session_id = str(uuid.uuid4())
+    expiry = 7 * 24 * 60 * 60  # 7 dias em segundos
+    
+    # Salvar sessão no Redis
+    redis_client.setex(f"session:{session_id}", expiry, "active")
+    
+    # Atualizar estado da sessão
+    st.session_state.session_id = session_id
+    st.session_state.authenticated = True
+    
+    # Adicionar session_id como parâmetro de URL
+    st.query_params['session'] = session_id
+
+def end_session():
+    """Encerra a sessão atual"""
+    if 'session_id' in st.session_state and st.session_state.session_id:
+        # Remover sessão do Redis
+        redis_client.delete(f"session:{st.session_state.session_id}")
+    
+    # Limpar todos os estados relevantes
+    for key in ['session_id', 'authenticated', 'username']:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Remover parâmetro de sessão da URL
+    if 'session' in st.query_params:
+        del st.query_params['session']
+
+# 4. Inicializar a sessão
+init_session()
+
+# Estilos CSS personalizados
+st.markdown("""
+<style>
+    .main > div {
+        padding-top: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+    }
+    .stTextInput>div>div>input, .stSelectbox>div>div>select {
+        font-size: 16px;
+    }
+    h1, h2, h3 {
+        margin-bottom: 1rem;
+    }
+    .sidebar-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 2rem;
+    }
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #000000;
+        color: #ffffff;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 14px;
+    }
+    .footer a {
+        color: #ffffff;
+        text-decoration: underline;
+    }
+    @media (max-width: 768px) {
+        .main > div {
+            padding-top: 1rem;
+        }
+        .sidebar-header {
+            font-size: 1.2rem;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Configuração do storage
+storage = StorageHandler()
 
 # Dicionário de idiomas em português
 IDIOMAS = {
@@ -68,63 +182,6 @@ def fetch_whatsapp_groups(server_url, instance, api_key):
         if response.text:
             st.error(f"Resposta do servidor: {response.text}")
         return []
-    
-# Configuração da página
-st.set_page_config(
-    page_title="TranscreveZAP by Impacte AI",
-    page_icon="🎙️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Estilos CSS personalizados
-st.markdown("""
-<style>
-    .main > div {
-        padding-top: 2rem;
-    }
-    .stButton>button {
-        width: 100%;
-    }
-    .stTextInput>div>div>input, .stSelectbox>div>div>select {
-        font-size: 16px;
-    }
-    h1, h2, h3 {
-        margin-bottom: 1rem;
-    }
-    .sidebar-header {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-bottom: 2rem;
-    }
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #000000;
-        color: #ffffff;
-        text-align: center;
-        padding: 10px 0;
-        font-size: 14px;
-    }
-    .footer a {
-        color: #ffffff;
-        text-decoration: underline;
-    }
-    @media (max-width: 768px) {
-        .main > div {
-            padding-top: 1rem;
-        }
-        .sidebar-header {
-            font-size: 1.2rem;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Configuração do storage
-storage = StorageHandler()
 
 # Função para carregar configurações do Redis para o Streamlit
 def load_settings():
@@ -189,21 +246,34 @@ def login_page():
             submit_button = st.form_submit_button('Entrar')
             if submit_button:
                 if username == os.getenv('MANAGER_USER') and password == os.getenv('MANAGER_PASSWORD'):
-                    st.session_state.authenticated = True
+                    create_session()
+                    st.success("Login realizado com sucesso!")
                     st.experimental_rerun()
                 else:
                     st.error('Credenciais inválidas')
 
+# Modificar a função de logout no dashboard
 def dashboard():
     show_logo()
     st.sidebar.markdown('<div class="sidebar-header">TranscreveZAP - Menu</div>', unsafe_allow_html=True)
+    # Mostrar nome do usuário logado (se disponível)
+    if hasattr(st.session_state, 'session_id'):
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("👤 **Usuário Conectado**")
+    
     page = st.sidebar.radio(
         "Navegação",
         ["📊 Painel de Controle", "👥 Gerenciar Grupos", "🚫 Gerenciar Bloqueios", "⚙️ Configurações"]
     )
-    if st.sidebar.button("Sair"):
-        st.session_state.authenticated = False
-        st.experimental_rerun()
+    
+    # Botão de logout
+    if st.sidebar.button("🚪 Sair da Conta"):
+        confirm = st.sidebar.empty()
+        if confirm.button("✅ Confirmar Saída"):
+            end_session()
+            st.experimental_rerun()
+        elif st.sidebar.button("❌ Cancelar"):
+            st.experimental_rerun()
 
     if page == "📊 Painel de Controle":
         show_statistics()
@@ -794,9 +864,11 @@ def manage_settings():
             except Exception as e:
                 st.error(f"Erro ao salvar configurações: {str(e)}")
                 
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+# Adicionar no início da execução principal
+if __name__ == "__main__":
+    init_session()
 
+# Modificar a parte final do código
 if st.session_state.authenticated:
     dashboard()
 else:
