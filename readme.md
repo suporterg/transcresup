@@ -1,9 +1,20 @@
-# TranscreveZAP 2.0
-## Transcrição e Resumo de Áudios no WhatsApp usando Python com interface em Streamlit
-
 ![ImpacteAI](./fluxo.png)
+# TranscreveZAP 2.3- Plataforma de Gestão e Automação de Áudios do WhatsApp
 
-Este projeto permite transcrever e resumir áudios enviados pelo WhatsApp usando inteligência artificial e integração com APIs. Ideal para automatizar o processamento de mensagens de áudio, oferecendo um resumo claro e prático.
+### Sistema Inteligente de Transcrição, Resumo e Tradução Automática de Áudios para WhatsApp
+
+*Desenvolvido com Python, FastAPI e Streamlit*
+
+---
+
+Uma solução completa para automatizar e gerenciar mensagens de áudio no WhatsApp, oferecendo:
+- Transcrição automática multilíngue
+- Resumos inteligentes de áudios
+- Detecção e tradução automática entre idiomas
+- Interface administrativa completa
+- Sistema de rodízio de chaves API
+- Gestão avançada de grupos e usuários
+- Personalização de formatação e saída
 
 Contato de email: contato@impacte.ai
 ([ACESSE NOSSO SITE](https://impacte.ai/))
@@ -16,7 +27,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 - Python 3.10+ instalado ([Download](https://www.python.org/downloads/))
 - Docker e Docker Compose instalados ([Instruções](https://docs.docker.com/get-docker/))
 - Uma conta Evolution API com chave válida
-- Uma conta GROQ API com chave válida (começa com 'gsk_') ([Crie sua CONTA](https://console.groq.com/login))
+- No mínimo uma conta GROQ API com chave válida (começa com 'gsk_') ([Crie sua CONTA](https://console.groq.com/login))
 * Em caso de uso com Proxy Reverso Aponte um Subdomínio para a API e outro para o MANAGER da aplicação
 ---
 
@@ -219,13 +230,19 @@ Para usar com Traefik, certifique-se de:
 - Em produção, recomenda-se DEBUG_MODE=false
 - Configure LOG_LEVEL=DEBUG apenas para troubleshooting
 
-## ✨ Novos Recursos na v2.1
+## ✨ Novos Recursos na v2.3
 
 ### 🌍 Suporte Multilíngue
-- Transcrição e resumo em 10+ idiomas
+- Transcrição e resumo com suporte para 16 idiomas principais
 - Mudança instantânea de idioma
 - Interface intuitiva para seleção de idioma
 - Mantém consistência entre transcrição e resumo
+- Configuração manual de idioma por contato
+- Detecção automática de idioma
+- Tradução automática integrada
+
+### 🔄 Sistema de Cache para Idiomas
+Implementação de cache inteligente para otimizar a detecção e processamento de idiomas.
 
 ### 🔄 Sistema Inteligente de Rodízio de Chaves
 - Suporte a múltiplas chaves GROQ
@@ -233,8 +250,13 @@ Para usar com Traefik, certifique-se de:
 - Maior redundância e disponibilidade
 - Gestão simplificada de chaves via interface
 
-## 🌍 Sistema de Idiomas
-O TranscreveZAP agora suporta transcrição e resumo em múltiplos idiomas. Na seção "Configurações", você pode:
+### ⏱️ Timestamps em Transcrições
+Nova funcionalidade de timestamps que adiciona marcadores de tempo precisos em cada trecho da transcrição.
+
+## 📋 Detalhamento das Funcionalidades
+
+### 🌍 Sistema de Idiomas
+O TranscreveZAP suporta transcrição e resumo em múltiplos idiomas. Na seção "Configurações", você pode:
 
 1. Selecionar o idioma principal para transcrição e resumo
 2. O sistema manterá Português como padrão se nenhum outro for selecionado
@@ -258,8 +280,86 @@ Idiomas suportados:
 - 🇷🇺 Russo
 - 🇹🇷 Turco
 
+### 🌐 Gestão de Idiomas por Contato
+
+#### Configuração Manual
+```markdown
+1. Acesse o Manager > Configurações > Idiomas e Transcrição
+2. Expanda "Adicionar Novo Contato"
+3. Digite o número do contato (formato: 5521999999999)
+4. Selecione o idioma desejado
+5. Clique em "Adicionar Contato"
+```
+
+### 🔄 Detecção Automática de Idioma
+Nova funcionalidade que detecta automaticamente o idioma do contato:
+- Ativação via Manager > Configurações > Idiomas e Transcrição
+- Analisa o primeiro áudio de cada contato
+- Cache inteligente de 24 horas
+- Funciona apenas em conversas privadas
+- Mantém configuração global para grupos
+
+### ⚡ Tradução Automática
+Sistema inteligente de tradução que:
+- Traduz automaticamente áudios recebidos para seu idioma principal
+- Mantém o contexto e estilo original da mensagem
+- Preserva formatações especiais (emojis, negrito, itálico)
+- Otimizado para comunicação natural
+
+### ⏱️ Sistema de Timestamps
+Nova funcionalidade que adiciona marcadores de tempo:
+- Formato [MM:SS] no início de cada trecho
+- Ativação via Manager > Configurações > Idiomas e Transcrição
+- Precisão de segundos
+- Ideal para referência e navegação em áudios longos
+
+#### Exemplo de Saída com Timestamps:
+```
+[00:00] Bom dia pessoal
+[00:02] Hoje vamos falar sobre
+[00:05] O novo sistema de timestamps
+```
+## 🔧 Configuração e Uso
+
+### Configuração de Idiomas
+1. **Configuração Global**
+   - Defina o idioma padrão do sistema
+   - Acesse: Manager > Configurações > Configurações Gerais
+   - Selecione o idioma principal em "Idioma para Transcrição e Resumo"
+
+2. **Configuração por Contato**
+   - Acesse: Manager > Configurações > Idiomas e Transcrição
+   - Use "Adicionar Novo Contato" ou gerencie contatos existentes
+   - Cada contato pode ter seu próprio idioma configurado
+
+3. **Detecção Automática**
+   - Ative/Desative a detecção automática
+   - Configure o tempo de cache
+   - Gerencie exceções e configurações manuais
+
+### Configuração de Timestamps
+1. Acesse: Manager > Configurações > Idiomas e Transcrição
+2. Localize a seção "Timestamps na Transcrição"
+3. Use o toggle para ativar/desativar
+4. As mudanças são aplicadas imediatamente
+
+## 📊 Monitoramento e Estatísticas
+
+### Estatísticas de Idiomas
+O sistema agora oferece estatísticas detalhadas:
+- Total de transcrições por idioma
+- Número de detecções automáticas
+- Divisão entre mensagens enviadas/recebidas
+- Histórico de uso por idioma
+
+### Visualização de Dados
+- Gráficos de uso por idioma
+- Distribuição de idiomas
+- Estatísticas de tradução
+- Performance do sistema
+
 ## 🔄 Sistema de Rodízio de Chaves GROQ
-O TranscreveZAP agora suporta múltiplas chaves GROQ com sistema de rodízio automático para melhor distribuição de carga e redundância.
+O TranscreveZAP suporta múltiplas chaves GROQ com sistema de rodízio automático para melhor distribuição de carga e redundância.
 
 ### Funcionalidades:
 1. Adicione múltiplas chaves GROQ para distribuição de carga
@@ -299,6 +399,29 @@ Se encontrar problemas:
 2. Confirme se a configuração foi salva com sucesso
 3. Reinicie o serviço se as alterações não forem aplicadas
 4. Verifique os logs para confirmar o idioma em uso
+
+## 📝 Notas Adicionais
+
+### Recomendações de Uso
+- Configure idiomas manualmente para contatos frequentes
+- Use detecção automática como fallback
+- Monitore estatísticas de uso
+- Faça backups regulares das configurações
+
+### Limitações Conhecidas
+- Detecção automática requer primeiro áudio
+- Cache limitado a 24 horas
+- Timestamps podem variar em áudios muito longos
+
+## 🤝 Contribuição
+Agradecemos feedback e contribuições! Reporte issues e sugira melhorias em nosso GitHub.
+---
+
+### 📞 Suporte
+Para suporte adicional ou dúvidas:
+- WhatsApp: [Entre no GRUPO](https://chat.whatsapp.com/L9jB1SlcmQFIVxzN71Y6KG)
+- Email: contato@impacte.ai
+- Site: [impacte.ai](https://impacte.ai)
 
 ## 📄 **Licença**
 Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
