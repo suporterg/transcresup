@@ -254,8 +254,13 @@ def login_page():
 
 # Modificar a função de logout no dashboard
 def dashboard():
+    # Versão do sistema
+    APP_VERSION = "2.3"
+    
     show_logo()
     st.sidebar.markdown('<div class="sidebar-header">TranscreveZAP - Menu</div>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<div style="text-align: center; color: gray; font-size: 0.8em;">versão {APP_VERSION}</div>', unsafe_allow_html=True)
+    
     # Mostrar nome do usuário logado (se disponível)
     if hasattr(st.session_state, 'session_id'):
         st.sidebar.markdown("---")
@@ -266,15 +271,34 @@ def dashboard():
         ["📊 Painel de Controle", "👥 Gerenciar Grupos", "🚫 Gerenciar Bloqueios", "⚙️ Configurações"]
     )
     
-    # Botão de logout
-    if st.sidebar.button("🚪 Sair da Conta"):
-        confirm = st.sidebar.empty()
-        if confirm.button("✅ Confirmar Saída"):
+    # Seção de logout com confirmação
+    st.sidebar.markdown("---")
+    logout_container = st.sidebar.container()
+    
+    # Verifica se já existe um estado para confirmação de logout
+    if 'logout_confirmation' not in st.session_state:
+        st.session_state.logout_confirmation = False
+    
+    # Botão principal de logout
+    if not st.session_state.logout_confirmation:
+        if logout_container.button("🚪 Sair da Conta"):
+            st.session_state.logout_confirmation = True
+            st.experimental_rerun()
+    
+    # Botões de confirmação
+    if st.session_state.logout_confirmation:
+        col1, col2 = st.sidebar.columns(2)
+        
+        if col1.button("✅ Confirmar"):
+            st.session_state.logout_confirmation = False
             end_session()
             st.experimental_rerun()
-        elif st.sidebar.button("❌ Cancelar"):
+        
+        if col2.button("❌ Cancelar"):
+            st.session_state.logout_confirmation = False
             st.experimental_rerun()
 
+    # Renderiza a página selecionada
     if page == "📊 Painel de Controle":
         show_statistics()
     elif page == "👥 Gerenciar Grupos":
