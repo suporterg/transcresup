@@ -184,66 +184,89 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
     Returns:
         tuple: (texto_transcrito, has_timestamps)
     """
-    storage.add_log("INFO", "Iniciando processo de transcrição")
+    storage.add_log("INFO", "Iniciando processo de transcrição", {
+        "from_me": from_me,
+        "remote_jid": remote_jid
+    })
+    
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
     groq_key = await get_groq_key()
     groq_headers = {"Authorization": f"Bearer {groq_key}"}
     
     # Inicializar variáveis
-    language = None
-    transcription_language = None
-    auto_detected = False
-    is_private = remote_jid and "@s.whatsapp.net" in remote_jid
+    contact_language = None
     system_language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
-    
-    # Determinar idioma baseado no contexto
+    is_private = remote_jid and "@s.whatsapp.net" in remote_jid
+
+    # Determinar idioma do contato em conversas privadas
     if is_private:
-        # 1. Verificar configuração manual primeiro
-        manual_language = storage.get_contact_language(remote_jid)
-        if manual_language:
-            language = manual_language
-            storage.add_log("DEBUG", "Usando idioma configurado manualmente", {
-                "language": manual_language,
+        # Remover @s.whatsapp.net do ID para buscar no cache
+        contact_id = remote_jid.split('@')[0]
+        
+        # 1. Tentar obter idioma configurado manualmente
+        contact_language = storage.get_contact_language(contact_id)
+        if contact_language:
+            storage.add_log("DEBUG", "Idioma do contato encontrado", {
+                "contact_language": contact_language,
+                "from_me": from_me,
                 "remote_jid": remote_jid,
-                "from_me": from_me
+                "is_private": is_private
+            })
+        # 2. Se não houver idioma configurado manualmente, verificar cache
+        elif storage.get_auto_language_detection():
+            cached_lang = storage.get_cached_language(contact_id)
+            if cached_lang:
+                contact_language = cached_lang.get('language')
+                storage.add_log("DEBUG", "Usando idioma em cache", {
+                    "contact_language": contact_language,
+                    "auto_detected": True
+                })
+        
+        if not contact_language:
+            storage.add_log("DEBUG", "Nenhum idioma configurado para o contato", {
+                "from_me": from_me,
+                "remote_jid": remote_jid,
+                "is_private": is_private,
+                "system_language": system_language
+            })
+
+    # Definir idioma de transcrição e tradução baseado no contexto
+    if is_private and contact_language:
+        if from_me:
+            # Se estou enviando para um contato com idioma configurado
+            transcription_language = contact_language  # Transcrever no idioma do contato
+            target_language = contact_language        # Não precisa traduzir
+            storage.add_log("DEBUG", "Usando idioma do contato para áudio enviado", {
+                "transcription_language": transcription_language,
+                "target_language": target_language
             })
         else:
-            # 2. Verificar cache
-            cached_lang = storage.get_cached_language(remote_jid)
-            if cached_lang:
-                language = cached_lang['language']
-                auto_detected = cached_lang.get('auto_detected', False)
-                storage.add_log("DEBUG", "Usando idioma em cache", {
-                    **cached_lang,
-                    "from_me": from_me
-                })
-    
-    # Definir idioma para transcrição e tradução
-    if from_me and is_private:
-        # Se o áudio é meu e destinado a um contato privado:
-        # - Transcreve no idioma do sistema
-        # - Traduz para o idioma do contato (se configurado)
-        transcription_language = system_language
-        target_language = language if language else system_language
+            # Se estou recebendo
+            transcription_language = contact_language  # Transcrever no idioma do contato
+            target_language = system_language         # Traduzir para o idioma do sistema
+            storage.add_log("DEBUG", "Processando áudio recebido com tradução", {
+                "transcription_language": transcription_language,
+                "target_language": target_language
+            })
     else:
-        # Se o áudio é recebido:
-        # - Transcreve no idioma detectado/configurado do contato
-        # - Traduz para o idioma do sistema
-        transcription_language = language if language else system_language
+        # Caso padrão: usar idioma do sistema
+        transcription_language = system_language
         target_language = system_language
+        storage.add_log("DEBUG", "Usando idioma do sistema", {
+            "transcription_language": transcription_language,
+            "target_language": target_language
+        })
 
     storage.add_log("DEBUG", "Configuração de idiomas definida", {
         "transcription_language": transcription_language,
         "target_language": target_language,
         "from_me": from_me,
         "is_private": is_private,
-        "auto_detected": auto_detected
+        "contact_language": contact_language
     })
 
     try:
-        # [Código existente para download do áudio se for URL]...
-
-        # Preparar dados para transcrição
+        # Realizar transcrição
         data = aiohttp.FormData()
         data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
         data.add_field('model', 'whisper-large-v3')
@@ -267,15 +290,14 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
                 
                 # Processar resposta baseado no formato
                 transcription = format_timestamped_result(result) if use_timestamps else result.get("text", "")
-                
-                # Detecção automática de idioma para novos contatos privados
+
+                # Detecção automática para novos contatos
                 if (is_private and storage.get_auto_language_detection() and 
-                    not from_me and not manual_language and not cached_lang):
+                    not from_me and not contact_language):
                     try:
                         detected_lang = await detect_language(transcription)
                         storage.cache_language_detection(remote_jid, detected_lang)
-                        auto_detected = True
-                        language = detected_lang
+                        contact_language = detected_lang
                         storage.add_log("INFO", "Idioma detectado e cacheado", {
                             "language": detected_lang,
                             "remote_jid": remote_jid
@@ -283,14 +305,14 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
                     except Exception as e:
                         storage.add_log("WARNING", "Erro na detecção de idioma", {"error": str(e)})
 
-                # Tradução automática
-                need_translation = False
-                if from_me and is_private and language:
-                    # Se for meu áudio para um contato, traduz para o idioma do contato
-                    need_translation = transcription_language != target_language
-                elif not from_me and storage.get_auto_translation():
-                    # Se for áudio recebido e tradução automática ativada, traduz para idioma do sistema
-                    need_translation = language != system_language
+                # Tradução quando necessário
+                need_translation = (
+                    is_private and contact_language and
+                    (
+                        (from_me and transcription_language != target_language) or
+                        (not from_me and target_language != transcription_language)
+                    )
+                )
 
                 if need_translation:
                     try:
@@ -301,17 +323,17 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
                         )
                         storage.add_log("INFO", "Texto traduzido automaticamente", {
                             "from": transcription_language,
-                            "to": target_language,
-                            "from_me": from_me
+                            "to": target_language
                         })
                     except Exception as e:
                         storage.add_log("ERROR", "Erro na tradução", {"error": str(e)})
 
-                # Registrar estatísticas
+                # Registrar estatísticas de uso
+                used_language = contact_language if contact_language else system_language
                 storage.record_language_usage(
-                    language if language else system_language,
+                    used_language,
                     from_me,
-                    auto_detected
+                    bool(contact_language and contact_language != system_language)
                 )
                 
                 return transcription, use_timestamps
@@ -329,8 +351,7 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
                 os.unlink(audio_source)
             except Exception as e:
                 storage.add_log("WARNING", "Erro ao remover arquivo temporário", {
-                    "error": str(e),
-                    "file": audio_source
+                    "error": str(e)
                 })
 
 def format_timestamped_result(result):

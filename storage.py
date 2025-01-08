@@ -295,6 +295,11 @@ class StorageHandler:
             auto_detected: Se o idioma foi detectado automaticamente
         """
         try:
+            # Validar idioma
+            if not language:
+                self.add_log("WARNING", "Tentativa de registrar uso sem idioma definido")
+                return
+
             # Incrementar contagem total do idioma
             self.redis.hincrby(
                 self._get_redis_key("language_stats"),
@@ -303,9 +308,10 @@ class StorageHandler:
             )
             
             # Incrementar contagem por direção (enviado/recebido)
+            direction = 'sent' if from_me else 'received'
             self.redis.hincrby(
                 self._get_redis_key("language_stats"),
-                f"{language}_{'sent' if from_me else 'received'}",
+                f"{language}_{direction}",
                 1
             )
             
@@ -324,9 +330,18 @@ class StorageHandler:
                 datetime.now().isoformat()
             )
 
-        except Exception as e:
-            self.logger.error(f"Erro ao registrar uso de idioma: {e}")
+            # Log detalhado
+            self.add_log("DEBUG", "Uso de idioma registrado", {
+                "language": language,
+                "direction": direction,
+                "auto_detected": auto_detected
+            })
 
+        except Exception as e:
+            self.add_log("ERROR", "Erro ao registrar uso de idioma", {
+                "error": str(e),
+                "type": type(e).__name__
+            })
     def get_language_statistics(self) -> Dict:
         """
         Obtém estatísticas de uso de idiomas

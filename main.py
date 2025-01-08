@@ -128,12 +128,20 @@ async def transcreve_audios(request: Request):
 
             # Verificar se timestamps estão habilitados
             use_timestamps = get_config("use_timestamps", "false") == "true"
+            
+            storage.add_log("DEBUG", "Informações da mensagem", {
+                "from_me": from_me,
+                "remote_jid": remote_jid,
+                "is_group": is_group
+            })
+
             # Transcrever áudio
             storage.add_log("INFO", "Iniciando transcrição")
             transcription_text, has_timestamps = await transcribe_audio(
                 audio_source,
                 apikey=apikey,
                 remote_jid=remote_jid,
+                from_me=from_me,
                 use_timestamps=use_timestamps
             )
             # Log do resultado
