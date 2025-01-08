@@ -203,27 +203,60 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
         # Remover @s.whatsapp.net do ID para buscar no cache
         contact_id = remote_jid.split('@')[0]
         
-        # 1. Tentar obter idioma configurado manualmente
+        # 1. Primeiro tentar obter idioma configurado manualmente
         contact_language = storage.get_contact_language(contact_id)
         if contact_language:
-            storage.add_log("DEBUG", "Idioma do contato encontrado", {
+            storage.add_log("DEBUG", "Usando idioma configurado manualmente", {
                 "contact_language": contact_language,
                 "from_me": from_me,
                 "remote_jid": remote_jid,
                 "is_private": is_private
             })
-        # 2. Se não houver idioma configurado manualmente, verificar cache
+        # 2. Se não houver configuração manual e detecção automática estiver ativa
         elif storage.get_auto_language_detection():
+            # Verificar cache primeiro
             cached_lang = storage.get_cached_language(contact_id)
             if cached_lang:
                 contact_language = cached_lang.get('language')
-                storage.add_log("DEBUG", "Usando idioma em cache", {
+                storage.add_log("DEBUG", "Usando idioma do cache", {
                     "contact_language": contact_language,
                     "auto_detected": True
                 })
-        
+            # Se não há cache ou está expirado, fazer detecção
+            elif not from_me:  # Só detecta em mensagens recebidas
+                try:
+                    # Realizar transcrição inicial sem idioma específico
+                    data = aiohttp.FormData()
+                    data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
+                    data.add_field('model', 'whisper-large-v3')
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, headers=groq_headers, data=data) as response:
+                            if response.status == 200:
+                                initial_result = await response.json()
+                                initial_text = initial_result.get("text", "")
+                                
+                                # Detectar idioma do texto transcrito
+                                detected_lang = await detect_language(initial_text)
+                                
+                                # Salvar no cache E na configuração do contato
+                                storage.cache_language_detection(contact_id, detected_lang)
+                                storage.set_contact_language(contact_id, detected_lang)
+                                
+                                contact_language = detected_lang
+                                storage.add_log("INFO", "Idioma detectado e configurado", {
+                                    "language": detected_lang,
+                                    "remote_jid": remote_jid,
+                                    "auto_detected": True
+                                })
+                except Exception as e:
+                    storage.add_log("WARNING", "Erro na detecção automática de idioma", {
+                        "error": str(e),
+                        "remote_jid": remote_jid
+                    })
+
         if not contact_language:
-            storage.add_log("DEBUG", "Nenhum idioma configurado para o contato", {
+            storage.add_log("DEBUG", "Usando idioma padrão do sistema", {
                 "from_me": from_me,
                 "remote_jid": remote_jid,
                 "is_private": is_private,
