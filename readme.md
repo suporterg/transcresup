@@ -42,32 +42,42 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 2. Configure o arquivo docker-compose.yaml:
 
 ```yaml
-    version: "3.7"
-    services:
-      tcaudio:
-        image: impacteai/transcrevezap:latest
-        ports:
-          - 8005:8005  # Porta para FastAPI
-          - 8501:8501  # Porta para Streamlit
-        environment:
-          - REDIS_HOST=redis
-          - REDIS_PORT=6380
-          - API_DOMAIN=seu-ip 
-          - DEBUG_MODE=false
-          - LOG_LEVEL=INFO
-          - MANAGER_USER=admin
-          - MANAGER_PASSWORD=sua_senha_aqui
-        depends_on:
-          - redis
-      
-      redis:
-        image: redis:6
-        command: redis-server --port 6380 --appendonly yes
-        volumes:
-          - redis_data:/data
+version: "3.7"
 
+services:
+  tcaudio:
+    image: impacteai/transcrevezap:latest
+    build:
+      context: .
+    ports:
+      - 8005:8005  # Porta para FastAPI
+      - 8501:8501  # Porta para Streamlit
+    environment:
+      - UVICORN_PORT=8005
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_RELOAD=true
+      - UVICORN_WORKERS=1
+      - API_DOMAIN=localhost
+      - DEBUG_MODE=false
+      - LOG_LEVEL=INFO
+      - MANAGER_USER=admin
+      - MANAGER_PASSWORD=sua_senha_aqui
+      - REDIS_HOST=redis-transcrevezap
+      - REDIS_PORT=6380  # Porta personalizada para o Redis do TranscreveZAP
+    depends_on:
+      - redis-transcrevezap
+    command: ./start.sh
+
+  redis-transcrevezap:
+    image: redis:6
+    command: redis-server --port 6380 --appendonly yes
     volumes:
-      redis_data:
+      - redis_transcrevezap_data:/data
+
+volumes:
+  redis_transcrevezap_data:
+    driver: local
+
 ```
 
 3. Inicie os serviços:
