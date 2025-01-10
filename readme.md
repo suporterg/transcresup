@@ -34,12 +34,7 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 ## 🚀 **Instalação e Configuração**
 
 ### 🐳 Docker Compose
-1. Clone o repositório:
-```bash
-   git clone https://github.com/seu-usuario/transcrevezap.git
-   cd transcrevezap
-```
-2. Configure o arquivo docker-compose.yaml:
+1. Configure o arquivo docker-compose.yaml:
 
 ```yaml
 version: "3.7"
@@ -80,7 +75,7 @@ volumes:
 
 ```
 
-3. Inicie os serviços:
+2. Inicie os serviços:
 ```bash
 docker-compose up -d
 ```
