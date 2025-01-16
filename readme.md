@@ -154,8 +154,6 @@ version: "3.7"
 services:
   tcaudio:
     image: impacteai/transcrevezap:dev
-    build:
-      context: .
     networks:
       - sua_rede_externa # Substitua pelo nome da sua rede externa
     ports:
@@ -207,6 +205,12 @@ services:
       - redis_transcrevezap_data:/data
     networks:
       - sua_rede_externa # Substitua pelo nome da sua rede externa
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
 
 networks:
   sua_rede_externa:  # Substitua pelo nome da sua rede externa
