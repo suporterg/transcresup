@@ -2,7 +2,9 @@ version: "3.7"
 
 services:
   tcaudio:
-    image: impacteai/transcrevezap:latest
+    image: impacteai/transcrevezap:dev
+    build:
+      context: .
     networks:
       - sua_rede_externa # Substitua pelo nome da sua rede externa
     ports:
