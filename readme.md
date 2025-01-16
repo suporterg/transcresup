@@ -59,6 +59,7 @@ services:
       - MANAGER_PASSWORD=sua_senha_aqui
       - REDIS_HOST=redis-transcrevezap
       - REDIS_PORT=6380  # Porta personalizada para o Redis do TranscreveZAP
+      - REDIS_DB=0  # Opcional: pode ser removida para usar o valor padrão
     depends_on:
       - redis-transcrevezap
     command: ./start.sh
@@ -170,6 +171,7 @@ services:
       - MANAGER_PASSWORD=sua_senha_segura   # Defina Senha do Manager
       - REDIS_HOST=redis-transcrevezap
       - REDIS_PORT=6380 # Porta personalizada para o Redis do TranscreveZAP
+      - REDIS_DB=0  # Opcional: pode ser removida para usar o valor padrão
     depends_on:
       - redis-transcrevezap
     deploy:
