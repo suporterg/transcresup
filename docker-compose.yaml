@@ -21,6 +21,9 @@ services:
       - REDIS_HOST=redis-transcrevezap
       - REDIS_PORT=6380 # Porta personalizada para o Redis do TranscreveZAP
       - REDIS_DB=0  # Opcional: pode ser removida para usar o valor padrão
+      # Autenticação Redis (opcional - descomente se necessário, se estiver usando autenticação)
+      # - REDIS_USERNAME=${REDIS_USERNAME:-}  # Nome do usuário definido no comando do Redis
+      # - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Senha definida no comando do Redis (sem o '>')
     depends_on:
       - redis-transcrevezap
     deploy:
@@ -49,7 +52,20 @@ services:
 
   redis-transcrevezap:
     image: redis:6
-    command: redis-server --port 6380 --appendonly yes
+    # 1. Configuração SEM autenticação (padrão):
+    command: redis-server --port 6380 --appendonly yes   
+    # 2. Configuração COM autenticação (descomente e ajuste se necessário):
+    # command: >
+    #   redis-server 
+    #   --port 6380 
+    #   --appendonly yes 
+    #   --user seuusuario on '>minhasenha' '~*' '+@all'
+    #   # Explicação dos parâmetros:
+    #   # --user seuusuario: nome do usuário
+    #   # on: indica início da configuração do usuário
+    #   # '>minhasenha': senha do usuário (mantenha o '>')
+    #   # '~*': permite acesso a todas as chaves
+    #   # '+@all': concede todas as permissões
     volumes:
       - redis_transcrevezap_data:/data
     networks:

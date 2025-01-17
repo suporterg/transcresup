@@ -40,39 +40,69 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 version: "3.7"
 
 services:
+  # Serviço principal do TranscreveZAP
   tcaudio:
     image: impacteai/transcrevezap:latest
     build:
       context: .
     ports:
-      - 8005:8005  # Porta para FastAPI
-      - 8501:8501  # Porta para Streamlit
+      - "8005:8005"  # API FastAPI - Use esta porta para configurar o webhook
+      - "8501:8501"  # Interface Web Streamlit - Acesse o painel por esta porta
     environment:
+      # Configurações do Servidor
       - UVICORN_PORT=8005
       - UVICORN_HOST=0.0.0.0
       - UVICORN_RELOAD=true
       - UVICORN_WORKERS=1
-      - API_DOMAIN=localhost
+      - API_DOMAIN=localhost  # Para uso local mantenha localhost
+      
+      # Modo Debug e Logs
       - DEBUG_MODE=false
       - LOG_LEVEL=INFO
+      
+      # Credenciais do Painel Admin (ALTERE ESTAS CREDENCIAIS!)
       - MANAGER_USER=admin
       - MANAGER_PASSWORD=sua_senha_aqui
-      - REDIS_HOST=redis-transcrevezap
-      - REDIS_PORT=6380  # Porta personalizada para o Redis do TranscreveZAP
-      - REDIS_DB=0  # Opcional: pode ser removida para usar o valor padrão
+      
+      # Configurações do Redis
+      - REDIS_HOST=redis-transcrevezap  # Nome do serviço Redis
+      - REDIS_PORT=6380                 # Porta do Redis
+      - REDIS_DB=0                      # Banco de dados Redis
+      
+      # Autenticação Redis (opcional - descomente se necessário)
+      # - REDIS_USERNAME=seu_usuario    # Nome do usuário Redis
+      # - REDIS_PASSWORD=sua_senha      # Senha do Redis
     depends_on:
       - redis-transcrevezap
     command: ./start.sh
 
+  # Serviço Redis para armazenamento de dados
   redis-transcrevezap:
     image: redis:6
+    # Escolha UMA das configurações do Redis abaixo:
+    
+    # 1. Configuração simples SEM autenticação:
     command: redis-server --port 6380 --appendonly yes
+    
+    # 2. Configuração COM autenticação (descomente e ajuste se necessário):
+    # command: >
+    #   redis-server 
+    #   --port 6380 
+    #   --appendonly yes 
+    #   --user admin on '>sua_senha' '~*' '+@all'
     volumes:
-      - redis_transcrevezap_data:/data
+      - redis_transcrevezap_data:/data  # Persistência dos dados
 
+# Volumes para persistência
 volumes:
   redis_transcrevezap_data:
     driver: local
+
+# Instruções de Uso:
+# 1. Salve este arquivo como docker-compose.yml
+# 2. Execute com: docker compose up -d
+# 3. Acesse o painel em: http://localhost:8501
+# 4. Configure o webhook da Evolution API para: http://localhost:8005/transcreve-audios
 
 ```
 
@@ -172,6 +202,9 @@ services:
       - REDIS_HOST=redis-transcrevezap
       - REDIS_PORT=6380 # Porta personalizada para o Redis do TranscreveZAP
       - REDIS_DB=0  # Opcional: pode ser removida para usar o valor padrão
+      # Autenticação Redis (opcional - descomente se necessário, se estiver usando autenticação)
+      # - REDIS_USERNAME=${REDIS_USERNAME:-}  # Nome do usuário definido no comando do Redis
+      # - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Senha definida no comando do Redis (sem o '>')
     depends_on:
       - redis-transcrevezap
     deploy:
@@ -200,7 +233,20 @@ services:
 
   redis-transcrevezap:
     image: redis:6
-    command: redis-server --port 6380 --appendonly yes
+    # 1. Configuração SEM autenticação (padrão):
+    command: redis-server --port 6380 --appendonly yes   
+    # 2. Configuração COM autenticação (descomente e ajuste se necessário):
+    # command: >
+    #   redis-server 
+    #   --port 6380 
+    #   --appendonly yes 
+    #   --user seuusuario on '>minhasenha' '~*' '+@all'
+    #   # Explicação dos parâmetros:
+    #   # --user seuusuario: nome do usuário
+    #   # on: indica início da configuração do usuário
+    #   # '>minhasenha': senha do usuário (mantenha o '>')
+    #   # '~*': permite acesso a todas as chaves
+    #   # '+@all': concede todas as permissões
     volumes:
       - redis_transcrevezap_data:/data
     networks:

@@ -1,6 +1,7 @@
 import logging
 import redis
 import os
+from utils import create_redis_client
 
 # Configuração de logging com cores e formatação melhorada
 class ColoredFormatter(logging.Formatter):
@@ -30,12 +31,7 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 # Conexão com o Redis
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6380)),
-    db=int(os.getenv('REDIS_DB', '0')),
-    decode_responses=True
-)
+redis_client = create_redis_client()
 
 class Settings:
     """Classe para gerenciar configurações do sistema."""

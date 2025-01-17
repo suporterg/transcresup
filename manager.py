@@ -6,6 +6,7 @@ from storage import StorageHandler
 import plotly.express as px
 import os
 import redis
+from utils import create_redis_client
 
 # 1. Primeiro: Configuração da página
 st.set_page_config(
@@ -16,11 +17,7 @@ st.set_page_config(
 )
 
 # 2. Depois: Inicialização do Redis
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6380)),
-    decode_responses=True
-)
+redis_client = create_redis_client()
 
 # 3. Funções de sessão (atualizado para usar st.query_params)
 def init_session():

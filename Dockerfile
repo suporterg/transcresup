@@ -1,41 +1,46 @@
-# Usar uma imagem oficial do Python como base
+# Imagem base do Python 3.10-slim
 FROM python:3.10-slim
 
-# Instalar dependências do sistema, incluindo redis-tools e tzdata para fuso horário
+# Configuração básica de timezone
+ENV TZ=America/Sao_Paulo
+
+# Instalação de dependências mínimas necessárias
 RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-tools \
     tzdata \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    dos2unix \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
 
-# Configurar o fuso horário
-ENV TZ=America/Sao_Paulo
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# Definir o diretório de trabalho
+# Configuração do ambiente de trabalho
 WORKDIR /app
 
-# Copiar o arquivo requirements.txt e instalar dependências
+# Instalação das dependências Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo o código da aplicação
+# Copia dos arquivos da aplicação
 COPY . .
 
-# Garantir que o diretório static existe
-RUN mkdir -p /app/static
+# Preparação do diretório de estáticos
+RUN mkdir -p /app/static && \
+    if [ -d "static" ]; then cp -r static/* /app/static/ 2>/dev/null || true; fi
 
-# Copiar arquivos estáticos para o diretório apropriado
-COPY static/ /app/static/
+# Configuração do script de inicialização
+RUN chmod +x start.sh && \
+    dos2unix start.sh && \
+    apt-get purge -y dos2unix && \
+    apt-get autoremove -y
 
-# Garantir permissões de execução ao script inicial
-COPY start.sh .
-RUN chmod +x start.sh
-
-# Converter possíveis caracteres de retorno de carro do Windows
-RUN apt-get update && apt-get install -y dos2unix && dos2unix start.sh && apt-get remove -y dos2unix && apt-get autoremove -y && apt-get clean
-
-# Expor as portas usadas pela aplicação
+# Portas da aplicação
 EXPOSE 8005 8501
 
-# Definir o comando inicial
+# Valores padrão para Redis
+ENV REDIS_HOST=redis-transcrevezap \
+    REDIS_PORT=6380 \
+    REDIS_DB=0
+
+# Comando de inicialização
 CMD ["/bin/bash", "/app/start.sh"]

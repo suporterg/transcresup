@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import traceback
 import logging
 import redis
+from utils import create_redis_client
 
 class StorageHandler:
     def __init__(self):
@@ -20,12 +21,7 @@ class StorageHandler:
         self.logger.info("StorageHandler inicializado.")
 
         # Conexão com o Redis
-        self.redis = redis.Redis(
-            host=os.getenv('REDIS_HOST', 'localhost'),
-            port=int(os.getenv('REDIS_PORT', 6380)),
-            db=int(os.getenv('REDIS_DB', '0')),
-            decode_responses=True
-        )
+        self.redis = create_redis_client()
 
         # Retenção de logs e backups
         self.log_retention_hours = int(os.getenv('LOG_RETENTION_HOURS', 48))
