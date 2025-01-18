@@ -6,8 +6,13 @@ import traceback
 import logging
 import redis
 from utils import create_redis_client
+import uuid
 
 class StorageHandler:
+    # Chaves Redis para webhooks
+    WEBHOOK_KEY = "webhook_redirects"  # Chave para armazenar os webhooks
+    WEBHOOK_STATS_KEY = "webhook_stats"  # Chave para estatísticas
+    
     def __init__(self):
         # Configuração de logger
         self.logger = logging.getLogger("StorageHandler")
@@ -403,3 +408,266 @@ class StorageHandler:
             return data
         except:
             return None
+    
+    def get_webhook_redirects(self) -> List[Dict]:
+        """Obtém todos os webhooks de redirecionamento cadastrados."""
+        webhooks_raw = self.redis.hgetall(self._get_redis_key("webhook_redirects"))
+        webhooks = []
+        
+        for webhook_id, data in webhooks_raw.items():
+            webhook_data = json.loads(data)
+            webhook_data['id'] = webhook_id
+            webhooks.append(webhook_data)
+            
+        return webhooks
+    
+    def validate_webhook_url(self, url: str) -> bool:
+        """Valida se a URL do webhook é acessível."""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            return all([parsed.scheme, parsed.netloc])
+        except Exception as e:
+            self.logger.error(f"URL inválida: {url} - {str(e)}")
+            return False
+    
+    def add_webhook_redirect(self, url: str, description: str = "") -> str:
+        """
+        Adiciona um novo webhook de redirecionamento.
+        Retorna o ID do webhook criado.
+        """
+        webhook_id = str(uuid.uuid4())
+        webhook_data = {
+            "url": url,
+            "description": description,
+            "created_at": datetime.now().isoformat(),
+            "status": "active",
+            "error_count": 0,
+            "success_count": 0,
+            "last_success": None,
+            "last_error": None
+        }
+        
+        self.redis.hset(
+            self._get_redis_key("webhook_redirects"),
+            webhook_id,
+            json.dumps(webhook_data)
+        )
+        return webhook_id
+    
+    def clean_webhook_data(self, webhook_id: str):
+        """
+        Remove todos os dados relacionados a um webhook específico do Redis.
+        
+        Args:
+            webhook_id: ID do webhook a ser limpo
+        """
+        try:
+            # Lista de chaves relacionadas ao webhook que precisam ser removidas
+            keys_to_remove = [
+                f"webhook_failed_{webhook_id}",  # Entregas falhas
+                f"webhook_stats_{webhook_id}",   # Estatísticas específicas
+            ]
+            
+            # Remove cada chave associada ao webhook
+            for key in keys_to_remove:
+                full_key = self._get_redis_key(key)
+                self.redis.delete(full_key)
+                self.logger.debug(f"Chave removida: {full_key}")
+            
+            self.logger.info(f"Dados do webhook {webhook_id} limpos com sucesso")
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao limpar dados do webhook {webhook_id}: {str(e)}")
+            raise
+    
+    def remove_webhook_redirect(self, webhook_id: str):
+        """Remove um webhook de redirecionamento e todos os seus dados associados."""
+        try:
+            # Primeiro remove os dados associados
+            self.clean_webhook_data(webhook_id)
+            
+            # Depois remove o webhook em si
+            self.redis.hdel(self._get_redis_key("webhook_redirects"), webhook_id)
+            self.logger.info(f"Webhook {webhook_id} removido com sucesso")
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao remover webhook {webhook_id}: {str(e)}")
+            raise
+        
+    def update_webhook_stats(self, webhook_id: str, success: bool, error_message: str = None):
+        """Atualiza as estatísticas de um webhook."""
+        try:
+            webhook_data = json.loads(
+                self.redis.hget(self._get_redis_key("webhook_redirects"), webhook_id)
+            )
+            
+            if success:
+                webhook_data["success_count"] += 1
+                webhook_data["last_success"] = datetime.now().isoformat()
+            else:
+                webhook_data["error_count"] += 1
+                webhook_data["last_error"] = {
+                    "timestamp": datetime.now().isoformat(),
+                    "message": error_message
+                }
+            
+            self.redis.hset(
+                self._get_redis_key("webhook_redirects"),
+                webhook_id,
+                json.dumps(webhook_data)
+            )
+        except Exception as e:
+            self.logger.error(f"Erro ao atualizar estatísticas do webhook {webhook_id}: {e}")
+    
+    def retry_failed_webhooks(self):
+        """Tenta reenviar webhooks que falharam nas últimas 24h."""
+        webhooks = self.get_webhook_redirects()
+        for webhook in webhooks:
+            if webhook.get("last_error"):
+                error_time = datetime.fromisoformat(webhook["last_error"]["timestamp"])
+                if datetime.now() - error_time < timedelta(hours=24):
+                    # Tentar reenviar
+                    pass
+    
+    def test_webhook(self, url: str) -> tuple[bool, str]:
+        """
+        Testa um webhook antes de salvá-lo.
+        Retorna uma tupla (sucesso, mensagem)
+        """
+        try:
+            import aiohttp
+            import asyncio
+            
+            async def _test_webhook():
+                async with aiohttp.ClientSession() as session:
+                    test_payload = {
+                        "test": True,
+                        "timestamp": datetime.now().isoformat(),
+                        "message": "Teste de conexão do TranscreveZAP"
+                    }
+                    async with session.post(
+                        url,
+                        json=test_payload,
+                        headers={"Content-Type": "application/json"},
+                        timeout=10
+                    ) as response:
+                        return response.status, await response.text()
+                        
+            status, response = asyncio.run(_test_webhook())
+            if status in [200, 201, 202]:
+                return True, "Webhook testado com sucesso!"
+            return False, f"Erro no teste: Status {status} - {response}"
+            
+        except Exception as e:
+            return False, f"Erro ao testar webhook: {str(e)}"
+
+    def get_webhook_health(self, webhook_id: str) -> dict:
+        """
+        Calcula métricas de saúde do webhook
+        """
+        try:
+            webhook_data = json.loads(
+                self.redis.hget(self._get_redis_key("webhook_redirects"), webhook_id)
+            )
+            
+            total_requests = webhook_data["success_count"] + webhook_data["error_count"]
+            if total_requests == 0:
+                return {
+                    "health_status": "unknown",
+                    "error_rate": 0,
+                    "success_rate": 0,
+                    "total_requests": 0
+                }
+                
+            error_rate = (webhook_data["error_count"] / total_requests) * 100
+            success_rate = (webhook_data["success_count"] / total_requests) * 100
+            
+            # Definir status de saúde
+            if error_rate >= 50:
+                health_status = "critical"
+            elif error_rate >= 20:
+                health_status = "warning"
+            else:
+                health_status = "healthy"
+                
+            return {
+                "health_status": health_status,
+                "error_rate": error_rate,
+                "success_rate": success_rate,
+                "total_requests": total_requests
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao calcular saúde do webhook {webhook_id}: {e}")
+            return None
+    
+    def retry_webhook(self, webhook_id: str, payload: dict) -> bool:
+        """
+        Tenta reenviar um payload para um webhook específico mantendo o payload original intacto.
+        
+        Args:
+            webhook_id: ID do webhook para reenvio
+            payload: Payload original para reenvio
+            
+        Returns:
+            bool: True se o reenvio foi bem sucedido, False caso contrário
+        """
+        try:
+            import aiohttp
+            import asyncio
+            
+            webhook_data = json.loads(
+                self.redis.hget(self._get_redis_key("webhook_redirects"), webhook_id)
+            )
+            
+            async def _retry_webhook():
+                async with aiohttp.ClientSession() as session:
+                    headers = {
+                        "Content-Type": "application/json",
+                        "X-TranscreveZAP-Forward": "true",
+                        "X-TranscreveZAP-Webhook-ID": webhook_id,
+                        "X-TranscreveZAP-Retry": "true"
+                    }
+                    
+                    async with session.post(
+                        webhook_data["url"],
+                        json=payload,  # Envia o payload original sem modificações
+                        headers=headers,
+                        timeout=10
+                    ) as response:
+                        return response.status in [200, 201, 202]
+                        
+            success = asyncio.run(_retry_webhook())
+            if success:
+                self.update_webhook_stats(webhook_id, True)
+            else:
+                self.update_webhook_stats(webhook_id, False, "Falha no retry")
+                
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"Erro no retry do webhook {webhook_id}: {e}")
+            return False
+    
+    def get_failed_deliveries(self, webhook_id: str) -> List[Dict]:
+        """
+        Retorna lista de entregas falhas para um webhook
+        """
+        key = self._get_redis_key(f"webhook_failed_{webhook_id}")
+        failed = self.redis.lrange(key, 0, -1)
+        return [json.loads(x) for x in failed]
+    
+    def add_failed_delivery(self, webhook_id: str, payload: dict):
+        """
+        Registra uma entrega falha para retry posterior
+        """
+        key = self._get_redis_key(f"webhook_failed_{webhook_id}")
+        failed_delivery = {
+            "timestamp": datetime.now().isoformat(),
+            "payload": payload,
+            "retry_count": 0
+        }
+        self.redis.lpush(key, json.dumps(failed_delivery))
+        # Manter apenas as últimas 100 falhas
+        self.redis.ltrim(key, 0, 99)

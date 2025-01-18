@@ -11,6 +11,8 @@ from config import logger, settings, redis_client
 from storage import StorageHandler
 import traceback
 import os
+import asyncio
+import aiohttp
 
 app = FastAPI()
 storage = StorageHandler()
@@ -40,12 +42,53 @@ def load_dynamic_settings():
         "DEBUG_MODE": get_config("DEBUG_MODE", "false") == "true",
     }
 
+async def forward_to_webhooks(body: dict, storage: StorageHandler):
+    """Encaminha o payload para todos os webhooks cadastrados."""
+    webhooks = storage.get_webhook_redirects()
+    
+    async with aiohttp.ClientSession() as session:
+        for webhook in webhooks:
+            try:
+                # Configura os headers mantendo o payload intacto
+                headers = {
+                    "Content-Type": "application/json",
+                    "X-TranscreveZAP-Forward": "true",  # Header para identificação da origem
+                    "X-TranscreveZAP-Webhook-ID": webhook["id"]
+                }
+                
+                async with session.post(
+                    webhook["url"],
+                    json=body,  # Envia o payload original sem modificações
+                    headers=headers,
+                    timeout=10
+                ) as response:
+                    if response.status in [200, 201, 202]:
+                        storage.update_webhook_stats(webhook["id"], True)
+                    else:
+                        error_text = await response.text()
+                        storage.update_webhook_stats(
+                            webhook["id"],
+                            False,
+                            f"Status {response.status}: {error_text}"
+                        )
+                        # Registra falha para retry posterior
+                        storage.add_failed_delivery(webhook["id"], body)
+            except Exception as e:
+                storage.update_webhook_stats(
+                    webhook["id"],
+                    False,
+                    f"Erro ao encaminhar: {str(e)}"
+                )
+                # Registra falha para retry posterior
+                storage.add_failed_delivery(webhook["id"], body)
+
 @app.post("/transcreve-audios")
 async def transcreve_audios(request: Request):
     try:
         body = await request.json()
         dynamic_settings = load_dynamic_settings()
-
+        # Iniciar o encaminhamento em background
+        asyncio.create_task(forward_to_webhooks(body, storage))
         # Log inicial da requisição
         storage.add_log("INFO", "Nova requisição de transcrição recebida", {
             "instance": body.get("instance"),

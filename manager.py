@@ -252,7 +252,7 @@ def login_page():
 # Modificar a função de logout no dashboard
 def dashboard():
     # Versão do sistema
-    APP_VERSION = "2.3"
+    APP_VERSION = "2.3.1"
     
     show_logo()
     st.sidebar.markdown('<div class="sidebar-header">TranscreveZAP - Menu</div>', unsafe_allow_html=True)
@@ -265,7 +265,7 @@ def dashboard():
     
     page = st.sidebar.radio(
         "Navegação",
-        ["📊 Painel de Controle", "👥 Gerenciar Grupos", "🚫 Gerenciar Bloqueios", "⚙️ Configurações"]
+        ["📊 Painel de Controle", "👥 Gerenciar Grupos", "🔄 Hub de Redirecionamento", "🚫 Gerenciar Bloqueios", "⚙️ Configurações"]
     )
     
     # Seção de logout com confirmação
@@ -300,6 +300,8 @@ def dashboard():
         show_statistics()
     elif page == "👥 Gerenciar Grupos":
         manage_groups()
+    elif page == "🔄 Hub de Redirecionamento":
+        manage_webhooks()
     elif page == "🚫 Gerenciar Bloqueios":
         manage_blocks()
     elif page == "⚙️ Configurações":
@@ -424,6 +426,165 @@ def manage_groups():
                     st.experimental_rerun()
     else:
         st.info("Nenhum grupo permitido.")
+
+def manage_webhooks():
+    st.title("🔄 Hub de Redirecionamento")
+    st.markdown("""
+        Configure aqui os webhooks para onde você deseja redirecionar as mensagens recebidas.
+        Cada webhook receberá uma cópia exata do payload original da Evolution API.
+    """)
+    
+    # Adicionar novo webhook
+    st.subheader("Adicionar Novo Webhook")
+    with st.form("add_webhook"):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            webhook_url = st.text_input(
+                "URL do Webhook",
+                placeholder="https://seu-sistema.com/webhook"
+            )
+        with col2:
+            if st.form_submit_button("🔍 Testar Conexão"):
+                if webhook_url:
+                    with st.spinner("Testando webhook..."):
+                        success, message = storage.test_webhook(webhook_url)
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
+                else:
+                    st.warning("Por favor, insira uma URL válida")
+                    
+        webhook_description = st.text_input(
+            "Descrição",
+            placeholder="Ex: URL de Webhook do N8N, Sistema de CRM, etc."
+        )
+        
+        if st.form_submit_button("Adicionar Webhook"):
+            if webhook_url:
+                try:
+                    # Testar antes de adicionar
+                    success, message = storage.test_webhook(webhook_url)
+                    if success:
+                        storage.add_webhook_redirect(webhook_url, webhook_description)
+                        st.success("✅ Webhook testado e adicionado com sucesso!")
+                        st.experimental_rerun()
+                    else:
+                        st.error(f"Erro ao adicionar webhook: {message}")
+                except Exception as e:
+                    st.error(f"Erro ao adicionar webhook: {str(e)}")
+            else:
+                st.warning("Por favor, insira uma URL válida")
+    
+    # Listar webhooks existentes
+    st.subheader("Webhooks Configurados")
+    webhooks = storage.get_webhook_redirects()
+    
+    if not webhooks:
+        st.info("Nenhum webhook configurado ainda.")
+        return
+        
+    for webhook in webhooks:
+        # Obter métricas de saúde
+        health = storage.get_webhook_health(webhook["id"])
+        
+        # Definir cor baseada no status
+        status_colors = {
+            "healthy": "🟢",
+            "warning": "🟡",
+            "critical": "🔴",
+            "unknown": "⚪"
+        }
+        
+        status_icon = status_colors.get(health["health_status"], "⚪")
+        
+        with st.expander(
+            f"{status_icon} {webhook['description'] or webhook['url']}",
+            expanded=True
+        ):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.text_input(
+                    "URL",
+                    value=webhook["url"],
+                    key=f"url_{webhook['id']}",
+                    disabled=True
+                )
+                if webhook["description"]:
+                    st.text_input(
+                        "Descrição",
+                        value=webhook["description"],
+                        key=f"desc_{webhook['id']}",
+                        disabled=True
+                    )
+            
+            with col2:
+                # Métricas de saúde
+                st.metric(
+                    "Taxa de Sucesso",
+                    f"{health['success_rate']:.1f}%"
+                )
+                
+                # Alertas baseados na saúde
+                if health["health_status"] == "critical":
+                    st.error("⚠️ Taxa de erro crítica!")
+                elif health["health_status"] == "warning":
+                    st.warning("⚠️ Taxa de erro elevada")
+                
+                # Botões de ação
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔄 Retry", key=f"retry_{webhook['id']}"):
+                        failed_deliveries = storage.get_failed_deliveries(webhook["id"])
+                        if failed_deliveries:
+                            with st.spinner("Reenviando mensagens..."):
+                                success_count = 0
+                                for delivery in failed_deliveries:
+                                    if storage.retry_webhook(webhook["id"], delivery["payload"]):
+                                        success_count += 1
+                                st.success(f"Reenviadas {success_count} de {len(failed_deliveries)} mensagens!")
+                        else:
+                            st.info("Não há mensagens pendentes para reenvio")
+                
+                with col2:
+                    if st.button("🗑️", key=f"remove_{webhook['id']}", help="Remover webhook"):
+                        if st.session_state.get(f"confirm_remove_{webhook['id']}", False):
+                            storage.remove_webhook_redirect(webhook["id"])
+                            st.success("Webhook removido!")
+                            st.experimental_rerun()
+                        else:
+                            st.session_state[f"confirm_remove_{webhook['id']}"] = True
+                            st.warning("Clique novamente para confirmar")
+            
+            # Estatísticas detalhadas
+            st.markdown("### Estatísticas")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total de Sucessos", webhook["success_count"])
+            with col2:
+                st.metric("Total de Erros", webhook["error_count"])
+            with col3:
+                last_success = webhook.get("last_success")
+                if last_success:
+                    last_success = datetime.fromisoformat(last_success).strftime("%d/%m/%Y %H:%M")
+                st.metric("Último Sucesso", last_success or "Nunca")
+            
+            # Exibir último erro (se houver)
+            if webhook.get("last_error"):
+                st.error(
+                    f"Último erro: {webhook['last_error']['message']} "
+                    f"({datetime.fromisoformat(webhook['last_error']['timestamp']).strftime('%d/%m/%Y %H:%M')})"
+                )
+                
+            # Lista de entregas falhas
+            failed_deliveries = storage.get_failed_deliveries(webhook["id"])
+            if failed_deliveries:
+                st.markdown("### Entregas Pendentes")
+                st.warning(f"{len(failed_deliveries)} mensagens aguardando reenvio")
+                if st.button("📋 Ver Detalhes", key=f"details_{webhook['id']}"):
+                    for delivery in failed_deliveries:
+                        st.code(json.dumps(delivery, indent=2))
 
 def manage_blocks():
     st.title("🚫 Gerenciar Bloqueios")
