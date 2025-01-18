@@ -15,6 +15,7 @@ Uma solução completa para automatizar e gerenciar mensagens de áudio no Whats
 - Sistema de rodízio de chaves API
 - Gestão avançada de grupos e usuários
 - Personalização de formatação e saída
+- Sistema de Redirecionamento de Webhooks
 
 Contato de email: contato@impacte.ai
 ([ACESSE NOSSO SITE](https://impacte.ai/))
@@ -288,6 +289,25 @@ Para usar com Traefik, certifique-se de:
 - Para quebras de linha no BUSINESS_MESSAGE, use \n
 - Em produção, recomenda-se DEBUG_MODE=false
 - Configure LOG_LEVEL=DEBUG apenas para troubleshooting
+
+## 🚀 Novo Recurso v2.3.1: Hub de Redirecionamento
+
+O TranscreveZAP agora oferece um sistema robusto para redirecionamento de mensagens, permitindo que você encaminhe os webhooks da Evolution API para múltiplos destinos simultaneamente.
+
+### Principais Recursos
+- Interface dedicada para gerenciamento de webhooks
+- Redirecionamento sem alteração do payload original
+- Monitoramento de saúde dos webhooks em tempo real
+- Sistema de retry automático para reenvio de mensagens falhas
+- Headers de rastreamento para identificação de origem (`X-TranscreveZAP-Forward`)
+- Suporte a descrições personalizadas para cada webhook
+- Limpeza automática de dados ao remover webhooks
+
+### Compatibilidade
+- Mantém o payload da Evolution API intacto
+- Suporta múltiplos endpoints simultaneamente
+- Compatível com qualquer sistema que aceite webhooks via POST
+- Preserva todos os dados originais da mensagem
 
 ## ✨ Novos Recursos na v2.3
 
