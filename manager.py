@@ -252,7 +252,7 @@ def login_page():
 # Modificar a função de logout no dashboard
 def dashboard():
     # Versão do sistema
-    APP_VERSION = "2.3.1"
+    APP_VERSION = "2.3.2"
     
     show_logo()
     st.sidebar.markdown('<div class="sidebar-header">TranscreveZAP - Menu</div>', unsafe_allow_html=True)
