@@ -321,57 +321,57 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
         
         transcription = format_timestamped_result(response_data) if use_timestamps else response_data.get("text", "")
 
-                # Validar o conteúdo da transcrição
-                if not await validate_transcription_response(transcription):
-                    storage.add_log("ERROR", "Transcrição vazia ou inválida recebida")
-                    raise Exception("Transcrição vazia ou inválida recebida")
-                
-                # Detecção automática para novos contatos
-                if (is_private and storage.get_auto_language_detection() and 
-                    not from_me and not contact_language):
-                    try:
-                        detected_lang = await detect_language(transcription)
-                        storage.cache_language_detection(remote_jid, detected_lang)
-                        contact_language = detected_lang
-                        storage.add_log("INFO", "Idioma detectado e cacheado", {
-                            "language": detected_lang,
-                            "remote_jid": remote_jid
-                        })
-                    except Exception as e:
-                        storage.add_log("WARNING", "Erro na detecção de idioma", {"error": str(e)})
+        # Validar o conteúdo da transcrição
+        if not await validate_transcription_response(transcription):
+            storage.add_log("ERROR", "Transcrição vazia ou inválida recebida")
+            raise Exception("Transcrição vazia ou inválida recebida")
+        
+        # Detecção automática para novos contatos
+        if (is_private and storage.get_auto_language_detection() and 
+            not from_me and not contact_language):
+            try:
+                detected_lang = await detect_language(transcription)
+                storage.cache_language_detection(remote_jid, detected_lang)
+                contact_language = detected_lang
+                storage.add_log("INFO", "Idioma detectado e cacheado", {
+                    "language": detected_lang,
+                    "remote_jid": remote_jid
+                })
+            except Exception as e:
+                storage.add_log("WARNING", "Erro na detecção de idioma", {"error": str(e)})
 
-                # Tradução quando necessário
-                need_translation = (
-                    is_private and contact_language and
-                    (
-                        (from_me and transcription_language != target_language) or
-                        (not from_me and target_language != transcription_language)
-                    )
+        # Tradução quando necessário
+        need_translation = (
+            is_private and contact_language and
+            (
+                (from_me and transcription_language != target_language) or
+                (not from_me and target_language != transcription_language)
+            )
+        )
+
+        if need_translation:
+            try:
+                transcription = await translate_text(
+                    transcription,
+                    transcription_language,
+                    target_language
                 )
+                storage.add_log("INFO", "Texto traduzido automaticamente", {
+                    "from": transcription_language,
+                    "to": target_language
+                })
+            except Exception as e:
+                storage.add_log("ERROR", "Erro na tradução", {"error": str(e)})
 
-                if need_translation:
-                    try:
-                        transcription = await translate_text(
-                            transcription,
-                            transcription_language,
-                            target_language
-                        )
-                        storage.add_log("INFO", "Texto traduzido automaticamente", {
-                            "from": transcription_language,
-                            "to": target_language
-                        })
-                    except Exception as e:
-                        storage.add_log("ERROR", "Erro na tradução", {"error": str(e)})
-
-                # Registrar estatísticas de uso
-                used_language = contact_language if contact_language else system_language
-                storage.record_language_usage(
-                    used_language,
-                    from_me,
-                    bool(contact_language and contact_language != system_language)
-                )
-                
-                return transcription, use_timestamps
+        # Registrar estatísticas de uso
+        used_language = contact_language if contact_language else system_language
+        storage.record_language_usage(
+            used_language,
+            from_me,
+            bool(contact_language and contact_language != system_language)
+        )
+        
+        return transcription, use_timestamps
 
     except Exception as e:
         storage.add_log("ERROR", "Erro no processo de transcrição", {
