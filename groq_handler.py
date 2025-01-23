@@ -41,58 +41,58 @@ async def get_working_groq_key(storage) -> Optional[str]:
     return None
 
 async def handle_groq_request(url: str, headers: dict, data: dict, storage) -> Tuple[bool, dict, str]:
-"""
-   Handle GROQ API request with retries and key rotation.
-   Returns: (success, response_data, error_message)
-   """
-   max_retries = len(storage.get_groq_keys())
-   
-   for attempt in range(max_retries):
-       try:
-           async with aiohttp.ClientSession() as session:
-               async with session.post(url, headers=headers, json=data) as response:
-                   response_data = await response.json()
-                   
-                   if response.status == 200:
-                       # Validate response content
-                       if "choices" in response_data and response_data["choices"]:
-                           content = response_data["choices"][0].get("message", {}).get("content")
-                           if content and await validate_transcription_response(content):
-                               return True, response_data, ""
-                   
-                   # Handle specific error cases
-                   error_msg = response_data.get("error", {}).get("message", "")
-                   if "organization_restricted" in error_msg or "invalid_api_key" in error_msg:
-                       # Try next key
-                       new_key = await get_working_groq_key(storage)
-                       if new_key:
-                           headers["Authorization"] = f"Bearer {new_key}"
-                           storage.add_log("INFO", "Tentando nova chave GROQ após erro", {
-                               "error": error_msg,
-                               "attempt": attempt + 1
-                           })
-                           continue
-                       
-                   return False, {}, f"API Error: {error_msg}"
-                   
-       except Exception as e:
-           # Tratamento específico para erros de conexão
-           if "Connection" in str(e) and attempt < max_retries - 1:
-               storage.add_log("WARNING", "Erro de conexão, tentando novamente", {
-                   "error": str(e),
-                   "attempt": attempt + 1
-               })
-               await asyncio.sleep(1)  # Espera 1 segundo antes de retry
-               continue
-               
-           # Se for última tentativa ou outro tipo de erro
-           if attempt == max_retries - 1:
-               storage.add_log("ERROR", "Todas tentativas falharam", {
-                   "error": str(e),
-                   "total_attempts": max_retries
-               })
-               return False, {}, f"Request failed: {str(e)}"
-           continue
-           
-   storage.add_log("ERROR", "Todas as chaves GROQ falharam")
-   return False, {}, "All GROQ keys exhausted"
+    """
+    Handle GROQ API request with retries and key rotation.
+    Returns: (success, response_data, error_message)
+    """
+    max_retries = len(storage.get_groq_keys())
+    
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data) as response:
+                    response_data = await response.json()
+                    
+                    if response.status == 200:
+                        # Validate response content
+                        if "choices" in response_data and response_data["choices"]:
+                            content = response_data["choices"][0].get("message", {}).get("content")
+                            if content and await validate_transcription_response(content):
+                                return True, response_data, ""
+                    
+                    # Handle specific error cases
+                    error_msg = response_data.get("error", {}).get("message", "")
+                    if "organization_restricted" in error_msg or "invalid_api_key" in error_msg:
+                        # Try next key
+                        new_key = await get_working_groq_key(storage)
+                        if new_key:
+                            headers["Authorization"] = f"Bearer {new_key}"
+                            storage.add_log("INFO", "Tentando nova chave GROQ após erro", {
+                                "error": error_msg,
+                                "attempt": attempt + 1
+                            })
+                            continue
+                    
+                    return False, {}, f"API Error: {error_msg}"
+                    
+        except Exception as e:
+            # Tratamento específico para erros de conexão
+            if "Connection" in str(e) and attempt < max_retries - 1:
+                storage.add_log("WARNING", "Erro de conexão, tentando novamente", {
+                    "error": str(e),
+                    "attempt": attempt + 1
+                })
+                await asyncio.sleep(1)  # Espera 1 segundo antes de retry
+                continue
+                
+            # Se for última tentativa ou outro tipo de erro
+            if attempt == max_retries - 1:
+                storage.add_log("ERROR", "Todas tentativas falharam", {
+                    "error": str(e),
+                    "total_attempts": max_retries
+                })
+                return False, {}, f"Request failed: {str(e)}"
+            continue
+            
+    storage.add_log("ERROR", "Todas as chaves GROQ falharam")
+    return False, {}, "All GROQ keys exhausted"
