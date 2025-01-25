@@ -11,6 +11,7 @@ Uma solução completa para automatizar e gerenciar mensagens de áudio no Whats
 - Transcrição automática multilíngue
 - Resumos inteligentes de áudios
 - Detecção e tradução automática entre idiomas
+- Seleção de plataforma LLM (GROQ ou OpenAI)
 - Interface administrativa completa
 - Sistema de rodízio de chaves API
 - Gestão avançada de grupos e usuários
@@ -28,10 +29,21 @@ Antes de começar, certifique-se de ter os seguintes requisitos:
 - Python 3.10+ instalado ([Download](https://www.python.org/downloads/))
 - Docker e Docker Compose instalados ([Instruções](https://docs.docker.com/get-docker/))
 - Uma conta Evolution API com chave válida
-- No mínimo uma conta GROQ API com chave válida (começa com 'gsk_') ([Crie sua CONTA](https://console.groq.com/login))
+- Chaves GROQ (começa com `gsk_`) e/ou chaves OpenAI (começa com `sk-`) configuradas ([Crie sua conta GROQ](https://console.groq.com/login))
 * Em caso de uso com Proxy Reverso Aponte um Subdomínio para a API e outro para o MANAGER da aplicação
 ---
 
+## 🚀 **Novidade: Escolha do Provedor LLM**
+Agora você pode escolher entre dois provedores para transcrições e resumos:
+1. **GROQ** (open-source): Configuração padrão.
+2. **OpenAI** (API paga): Integração com modelos GPT.
+
+### Configuração:
+- Acesse: **Configurações > Provedor LLM** na interface administrativa.
+- Escolha entre `groq` e `openai`.
+- Adicione as chaves correspondentes para cada provedor.
+
+---
 ## 🚀 **Instalação e Configuração**
 
 ### 🐳 Docker Compose
