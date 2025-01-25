@@ -7,6 +7,7 @@ from storage import StorageHandler
 import os
 import json
 import tempfile
+import traceback
 from groq_handler import get_working_groq_key, validate_transcription_response, handle_groq_request
 # Inicializa o storage handler
 storage = StorageHandler()
@@ -146,7 +147,7 @@ async def summarize_text_if_needed(text):
     }
 
     try:
-        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage)
+        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
         if not success:
            raise Exception(error)
        
@@ -234,27 +235,28 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
             elif not from_me:  # Só detecta em mensagens recebidas
                 try:
                     # Realizar transcrição inicial sem idioma específico
-                    data = aiohttp.FormData()
-                    data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
-                    data.add_field('model', 'whisper-large-v3')
-                    
-                    success, response_data, error = await handle_groq_request(url, groq_headers, data, storage)
-                    if success:
-                        initial_text = response_data.get("text", "")
-                                
-                        # Detectar idioma do texto transcrito
-                        detected_lang = await detect_language(initial_text)
-                        
-                        # Salvar no cache E na configuração do contato
-                        storage.cache_language_detection(contact_id, detected_lang)
-                        storage.set_contact_language(contact_id, detected_lang)
-                        
-                        contact_language = detected_lang
-                        storage.add_log("INFO", "Idioma detectado e configurado", {
-                            "language": detected_lang,
-                            "remote_jid": remote_jid,
-                            "auto_detected": True
-                        })
+                    with open(audio_source, 'rb') as audio_file:
+                        data = aiohttp.FormData()
+                        data.add_field('file', audio_file, filename='audio.mp3')
+                        data.add_field('model', 'whisper-large-v3')
+
+                        success, response_data, error = await handle_groq_request(url, groq_headers, data, storage, is_form_data=True)
+                        if success:
+                            initial_text = response_data.get("text", "")
+
+                            # Detectar idioma do texto transcrito
+                            detected_lang = await detect_language(initial_text)
+
+                            # Salvar no cache E na configuração do contato
+                            storage.cache_language_detection(contact_id, detected_lang)
+                            storage.set_contact_language(contact_id, detected_lang)
+
+                            contact_language = detected_lang
+                            storage.add_log("INFO", "Idioma detectado e configurado", {
+                                "language": detected_lang,
+                                "remote_jid": remote_jid,
+                                "auto_detected": True
+                            })
                 except Exception as e:
                     storage.add_log("WARNING", "Erro na detecção automática de idioma", {
                         "error": str(e),
@@ -306,72 +308,73 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
 
     try:
         # Realizar transcrição
-        data = aiohttp.FormData()
-        data.add_field('file', open(audio_source, 'rb'), filename='audio.mp3')
-        data.add_field('model', 'whisper-large-v3')
-        data.add_field('language', transcription_language)
-        
-        if use_timestamps:
-            data.add_field('response_format', 'verbose_json')
-            
-        # Usar handle_groq_request para ter retry e validação
-        success, response_data, error = await handle_groq_request(url, groq_headers, data, storage)
-        if not success:
-            raise Exception(f"Erro na transcrição: {error}")
-        
-        transcription = format_timestamped_result(response_data) if use_timestamps else response_data.get("text", "")
+        with open(audio_source, 'rb') as audio_file:
+            data = aiohttp.FormData()
+            data.add_field('file', audio_file, filename='audio.mp3')
+            data.add_field('model', 'whisper-large-v3')
+            data.add_field('language', transcription_language)
 
-        # Validar o conteúdo da transcrição
-        if not await validate_transcription_response(transcription):
-            storage.add_log("ERROR", "Transcrição vazia ou inválida recebida")
-            raise Exception("Transcrição vazia ou inválida recebida")
-        
-        # Detecção automática para novos contatos
-        if (is_private and storage.get_auto_language_detection() and 
-            not from_me and not contact_language):
-            try:
-                detected_lang = await detect_language(transcription)
-                storage.cache_language_detection(remote_jid, detected_lang)
-                contact_language = detected_lang
-                storage.add_log("INFO", "Idioma detectado e cacheado", {
-                    "language": detected_lang,
-                    "remote_jid": remote_jid
-                })
-            except Exception as e:
-                storage.add_log("WARNING", "Erro na detecção de idioma", {"error": str(e)})
+            if use_timestamps:
+                data.add_field('response_format', 'verbose_json')
 
-        # Tradução quando necessário
-        need_translation = (
-            is_private and contact_language and
-            (
-                (from_me and transcription_language != target_language) or
-                (not from_me and target_language != transcription_language)
-            )
-        )
+            # Usar handle_groq_request para ter retry e validação
+            success, response_data, error = await handle_groq_request(url, groq_headers, data, storage, is_form_data=True)
+            if not success:
+                raise Exception(f"Erro na transcrição: {error}")
 
-        if need_translation:
-            try:
-                transcription = await translate_text(
-                    transcription,
-                    transcription_language,
-                    target_language
+            transcription = format_timestamped_result(response_data) if use_timestamps else response_data.get("text", "")
+
+            # Validar o conteúdo da transcrição
+            if not await validate_transcription_response(transcription):
+                storage.add_log("ERROR", "Transcrição vazia ou inválida recebida")
+                raise Exception("Transcrição vazia ou inválida recebida")
+
+            # Detecção automática para novos contatos
+            if (is_private and storage.get_auto_language_detection() and 
+                not from_me and not contact_language):
+                try:
+                    detected_lang = await detect_language(transcription)
+                    storage.cache_language_detection(remote_jid, detected_lang)
+                    contact_language = detected_lang
+                    storage.add_log("INFO", "Idioma detectado e cacheado", {
+                        "language": detected_lang,
+                        "remote_jid": remote_jid
+                    })
+                except Exception as e:
+                    storage.add_log("WARNING", "Erro na detecção de idioma", {"error": str(e)})
+
+            # Tradução quando necessário
+            need_translation = (
+                is_private and contact_language and
+                (
+                    (from_me and transcription_language != target_language) or
+                    (not from_me and target_language != transcription_language)
                 )
-                storage.add_log("INFO", "Texto traduzido automaticamente", {
-                    "from": transcription_language,
-                    "to": target_language
-                })
-            except Exception as e:
-                storage.add_log("ERROR", "Erro na tradução", {"error": str(e)})
+            )
 
-        # Registrar estatísticas de uso
-        used_language = contact_language if contact_language else system_language
-        storage.record_language_usage(
-            used_language,
-            from_me,
-            bool(contact_language and contact_language != system_language)
-        )
-        
-        return transcription, use_timestamps
+            if need_translation:
+                try:
+                    transcription = await translate_text(
+                        transcription,
+                        transcription_language,
+                        target_language
+                    )
+                    storage.add_log("INFO", "Texto traduzido automaticamente", {
+                        "from": transcription_language,
+                        "to": target_language
+                    })
+                except Exception as e:
+                    storage.add_log("ERROR", "Erro na tradução", {"error": str(e)})
+
+            # Registrar estatísticas de uso
+            used_language = contact_language if contact_language else system_language
+            storage.record_language_usage(
+                used_language,
+                from_me,
+                bool(contact_language and contact_language != system_language)
+            )
+
+            return transcription, use_timestamps
 
     except Exception as e:
         storage.add_log("ERROR", "Erro no processo de transcrição", {
@@ -475,9 +478,9 @@ async def detect_language(text: str) -> str:
     }
 
     try:
-        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage)
+        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
         if not success:
-            raise Exception(error)
+            raise Exception(f"Falha na detecção de idioma: {error}")
         
         detected_language = response_data["choices"][0]["message"]["content"].strip().lower()
                             
@@ -697,9 +700,9 @@ async def translate_text(text: str, source_language: str, target_language: str) 
    }
 
    try:
-       success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage)
+       success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
        if not success:
-           raise Exception(error)
+           raise Exception(f"Falha na tradução: {error}")
        
        translated_text = response_data["choices"][0]["message"]["content"].strip()
        

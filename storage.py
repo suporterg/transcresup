@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import traceback
 import logging
@@ -209,6 +209,29 @@ class StorageHandler:
         
         return keys[counter % len(keys)]
     
+    def get_penalized_until(self, key: str) -> Optional[datetime]:
+        """
+        Retorna o timestamp até quando a chave está penalizada, ou None se não estiver penalizada.
+        """
+        penalized_key = self._get_redis_key(f"groq_key_penalized_{key}")
+        penalized_until = self.redis.get(penalized_key)
+        if penalized_until:
+            return datetime.fromisoformat(penalized_until)
+        return None
+
+    def penalize_key(self, key: str, penalty_duration: int):
+        """
+        Penaliza uma chave por um tempo determinado (em segundos).
+        """
+        penalized_key = self._get_redis_key(f"groq_key_penalized_{key}")
+        penalized_until = datetime.utcnow() + timedelta(seconds=penalty_duration)
+        self.redis.set(penalized_key, penalized_until.isoformat())
+        self.redis.expire(penalized_key, penalty_duration)  # Expira a chave após o tempo de penalidade
+        self.add_log("INFO", "Chave GROQ penalizada", {
+            "key": key,
+            "penalized_until": penalized_until.isoformat()
+        })
+  
     def get_message_settings(self):
         """Obtém as configurações de mensagens."""
         return {
