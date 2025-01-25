@@ -252,7 +252,7 @@ def login_page():
 # Modificar a função de logout no dashboard
 def dashboard():
     # Versão do sistema
-    APP_VERSION = "2.3.2"
+    APP_VERSION = "2.3.3"
     
     show_logo()
     st.sidebar.markdown('<div class="sidebar-header">TranscreveZAP - Menu</div>', unsafe_allow_html=True)
@@ -728,9 +728,10 @@ def manage_settings():
     st.title("⚙️ Configurações")
     
     # Criar tabs para melhor organização
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🔑 Chaves API", 
-        "🌐 Configurações Gerais", 
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🔑 Chaves API",
+        "🤖 Provedor LLM",
+        "🌐 Configurações Gerais",
         "📝 Formatação de Mensagens",
         "🗣️ Idiomas e Transcrição"
     ])
@@ -787,6 +788,46 @@ def manage_settings():
         pass
     
     with tab2:
+        st.subheader("Configuração do Provedor LLM")
+        
+        # Select provider
+        current_provider = storage.get_llm_provider()
+        provider = st.selectbox(
+            "Provedor de Serviço",
+            options=["groq", "openai"],
+            format_func=lambda x: "Groq (Open Source)" if x == "groq" else "OpenAI (API Paga)",
+            index=0 if current_provider == "groq" else 1
+        )
+        
+        if provider == "openai":
+            st.info("""
+            A OpenAI é um serviço pago que requer uma chave API válida.
+            Obtenha sua chave em https://platform.openai.com
+            """)
+            
+            # OpenAI Key Management
+            openai_key = st.text_input(
+                "OpenAI API Key",
+                type="password",
+                help="Chave que começa com 'sk-'"
+            )
+            
+            if st.button("Adicionar Chave OpenAI"):
+                if openai_key and openai_key.startswith("sk-"):
+                    storage.add_openai_key(openai_key)
+                    st.success("✅ Chave OpenAI adicionada com sucesso!")
+                else:
+                    st.error("Chave inválida! Deve começar com 'sk-'")
+                    
+        # Save provider selection
+        if st.button("💾 Salvar Configuração do Provedor"):
+            try:
+                storage.set_llm_provider(provider)
+                st.success(f"Provedor alterado para: {provider}")
+            except Exception as e:
+                st.error(f"Erro ao salvar provedor: {str(e)}")
+    
+    with tab3:
         st.subheader("Configurações do Sistema")
     
         # Business Message
@@ -850,7 +891,7 @@ def manage_settings():
         )
         pass
     
-    with tab3:
+    with tab4:
         st.subheader("Formatação de Mensagens")
         
         # Headers personalizados
@@ -935,7 +976,7 @@ def manage_settings():
             st.error(f"Erro ao salvar configurações: {str(e)}")
 
     
-    with tab4:
+    with tab5:
         st.subheader("Idiomas e Transcrição")
         
         # Adicionar estatísticas no topo

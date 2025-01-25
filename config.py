@@ -39,6 +39,8 @@ class Settings:
         """Inicializa as configurações."""
         logger.debug("Carregando configurações do Redis...")
 
+        self.ACTIVE_LLM_PROVIDER = self.get_redis_value("ACTIVE_LLM_PROVIDER", "groq")
+        self.OPENAI_API_KEY = self.get_redis_value("OPENAI_API_KEY", "")
         self.GROQ_API_KEY = self.get_redis_value("GROQ_API_KEY", "gsk_default_key")
         self.BUSINESS_MESSAGE = self.get_redis_value("BUSINESS_MESSAGE", "*Impacte AI* Premium Services")
         self.PROCESS_GROUP_MESSAGES = self.get_redis_value("PROCESS_GROUP_MESSAGES", "false").lower() == "true"

@@ -694,3 +694,24 @@ class StorageHandler:
         self.redis.lpush(key, json.dumps(failed_delivery))
         # Manter apenas as últimas 100 falhas
         self.redis.ltrim(key, 0, 99)
+    
+    def get_llm_provider(self) -> str:
+        """Returns active LLM provider (groq or openai)"""
+        return self.redis.get(self._get_redis_key("active_llm_provider")) or "groq"
+    
+    def set_llm_provider(self, provider: str):
+        """Sets active LLM provider"""
+        if provider not in ["groq", "openai"]:
+            raise ValueError("Provider must be 'groq' or 'openai'")
+        self.redis.set(self._get_redis_key("active_llm_provider"), provider)
+    
+    def get_openai_keys(self) -> List[str]:
+        """Get stored OpenAI API keys"""
+        return list(self.redis.smembers(self._get_redis_key("openai_keys")))
+    
+    def add_openai_key(self, key: str):
+        """Add OpenAI API key"""
+        if key and key.startswith("sk-"):
+            self.redis.sadd(self._get_redis_key("openai_keys"), key)
+            return True
+        return False

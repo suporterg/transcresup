@@ -47,6 +47,7 @@ async def summarize_text_if_needed(text):
     storage.add_log("DEBUG", "Iniciando processo de resumo", {
         "text_length": len(text)
     })
+    provider = storage.get_llm_provider()
     
     # Obter idioma configurado
     language = redis_client.get("TRANSCRIPTION_LANGUAGE") or "pt"
@@ -54,12 +55,20 @@ async def summarize_text_if_needed(text):
     "language": language,
     "redis_value": redis_client.get("TRANSCRIPTION_LANGUAGE")
     })
-    url_completions = "https://api.groq.com/openai/v1/chat/completions"
-    groq_key = await get_working_groq_key(storage)
-    if not groq_key:
-        raise Exception("Nenhuma chave GROQ disponível")
+    
+    if provider == "openai":
+        api_key = storage.get_openai_keys()[0]
+        url = "https://api.openai.com/v1/chat/completions"
+        model = "gpt-4o-mini"
+    else:  # groq
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        api_key = await get_working_groq_key(storage)
+        if not api_key:
+            raise Exception("Nenhuma chave GROQ disponível")
+        model = "llama-3.3-70b-versatile"
+        
     headers = {
-        "Authorization": f"Bearer {groq_key}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     
@@ -143,11 +152,11 @@ async def summarize_text_if_needed(text):
             "role": "user",
             "content": f"{base_prompt}\n\nTexto para resumir: {text}",
         }],
-        "model": "llama-3.3-70b-versatile",
+        "model": model,
     }
 
     try:
-        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
+        success, response_data, error = await handle_groq_request(url, headers, json_data, storage, is_form_data=False)
         if not success:
            raise Exception(error)
        
@@ -195,12 +204,20 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
         "from_me": from_me,
         "remote_jid": remote_jid
     })
+    provider = storage.get_llm_provider()
     
-    url = "https://api.groq.com/openai/v1/audio/transcriptions"
-    groq_key = await get_working_groq_key(storage)
-    if not groq_key:
-        raise Exception("Nenhuma chave GROQ disponível")
-    groq_headers = {"Authorization": f"Bearer {groq_key}"}
+    if provider == "openai":
+        api_key = storage.get_openai_keys()[0]  # Get first OpenAI key
+        url = "https://api.openai.com/v1/audio/transcriptions"
+        model = "whisper-1"
+    else:  # groq
+        api_key = await get_working_groq_key(storage)
+        if not api_key:
+            raise Exception("Nenhuma chave GROQ disponível")
+        url = "https://api.groq.com/openai/v1/audio/transcriptions"
+        model = "whisper-large-v3"
+
+    headers = {"Authorization": f"Bearer {api_key}"}
     
     # Inicializar variáveis
     contact_language = None
@@ -238,9 +255,9 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
                     with open(audio_source, 'rb') as audio_file:
                         data = aiohttp.FormData()
                         data.add_field('file', audio_file, filename='audio.mp3')
-                        data.add_field('model', 'whisper-large-v3')
+                        data.add_field('model', model)
 
-                        success, response_data, error = await handle_groq_request(url, groq_headers, data, storage, is_form_data=True)
+                        success, response_data, error = await handle_groq_request(url, headers, data, storage, is_form_data=True)
                         if success:
                             initial_text = response_data.get("text", "")
 
@@ -311,14 +328,14 @@ async def transcribe_audio(audio_source, apikey=None, remote_jid=None, from_me=F
         with open(audio_source, 'rb') as audio_file:
             data = aiohttp.FormData()
             data.add_field('file', audio_file, filename='audio.mp3')
-            data.add_field('model', 'whisper-large-v3')
+            data.add_field('model', model)
             data.add_field('language', transcription_language)
 
             if use_timestamps:
                 data.add_field('response_format', 'verbose_json')
 
             # Usar handle_groq_request para ter retry e validação
-            success, response_data, error = await handle_groq_request(url, groq_headers, data, storage, is_form_data=True)
+            success, response_data, error = await handle_groq_request(url, headers, data, storage, is_form_data=True)
             if not success:
                 raise Exception(f"Erro na transcrição: {error}")
 
@@ -428,6 +445,7 @@ async def detect_language(text: str) -> str:
     Returns:
         str: Código ISO 639-1 do idioma detectado
     """
+    provider = storage.get_llm_provider()
     storage.add_log("DEBUG", "Iniciando detecção de idioma", {
         "text_length": len(text)
     })
@@ -437,14 +455,19 @@ async def detect_language(text: str) -> str:
         "pt", "en", "es", "fr", "de", "it", "ja", "ko", 
         "zh", "ro", "ru", "ar", "hi", "nl", "pl", "tr"
     }
-    
-    url_completions = "https://api.groq.com/openai/v1/chat/completions"
-    groq_key = await get_working_groq_key(storage)
-    if not groq_key:
-        raise Exception("Nenhuma chave GROQ disponível")
-    
+    if provider == "openai":
+        api_key = storage.get_openai_keys()[0]
+        url = "https://api.openai.com/v1/chat/completions"
+        model = "gpt-4o-mini"
+    else:  # groq
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        api_key = await get_working_groq_key(storage)
+        if not api_key:
+            raise Exception("Nenhuma chave GROQ disponível")
+        model = "llama-3.3-70b-versatile"
+        
     headers = {
-        "Authorization": f"Bearer {groq_key}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     
@@ -473,12 +496,12 @@ async def detect_language(text: str) -> str:
             "role": "user",
             "content": f"{prompt}\n\n{text[:500]}"  # Limitando para os primeiros 500 caracteres
         }],
-        "model": "llama-3.3-70b-versatile",
+        "model": model,
         "temperature": 0.1
     }
 
     try:
-        success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
+        success, response_data, error = await handle_groq_request(url, headers, json_data, storage, is_form_data=False)
         if not success:
             raise Exception(f"Falha na detecção de idioma: {error}")
         
@@ -640,97 +663,104 @@ async def format_message(transcription_text, summary_text=None):
     return "\n\n".join(message_parts)
 
 async def translate_text(text: str, source_language: str, target_language: str) -> str:
-   """
-   Traduz o texto usando a API GROQ
-   
-   Args:
-       text: Texto para traduzir
-       source_language: Código ISO 639-1 do idioma de origem
-       target_language: Código ISO 639-1 do idioma de destino
-       
-   Returns:
-       str: Texto traduzido
-   """
-   storage.add_log("DEBUG", "Iniciando tradução", {
+    """
+    Traduz o texto usando a API GROQ
+    
+    Args:
+        text: Texto para traduzir
+        source_language: Código ISO 639-1 do idioma de origem
+        target_language: Código ISO 639-1 do idioma de destino
+        
+    Returns:
+        str: Texto traduzido
+    """
+    provider = storage.get_llm_provider()
+    storage.add_log("DEBUG", "Iniciando tradução", {
        "source_language": source_language,
        "target_language": target_language,
        "text_length": len(text)
-   })
+    })
    
-   # Se os idiomas forem iguais, retorna o texto original
-   if source_language == target_language:
-       return text
+    # Se os idiomas forem iguais, retorna o texto original
+    if source_language == target_language:
+        return text
    
-   url_completions = "https://api.groq.com/openai/v1/chat/completions"
-   groq_key = await get_working_groq_key(storage)
-   if not groq_key:
-       raise Exception("Nenhuma chave GROQ disponível")
+    if provider == "openai":
+        api_key = storage.get_openai_keys()[0]
+        url = "https://api.openai.com/v1/chat/completions"
+        model = "gpt-4o-mini"
+    else:  # groq
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        api_key = await get_working_groq_key(storage)
+        if not api_key:
+            raise Exception("Nenhuma chave GROQ disponível")
+        model = "llama-3.3-70b-versatile"
+        
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
    
-   headers = {
-       "Authorization": f"Bearer {groq_key}",
-       "Content-Type": "application/json",
-   }
-   
-   prompt = f"""
-   Você é um tradutor profissional especializado em manter o tom e estilo do texto original.
-   
-   Instruções:
-   1. Traduza o texto de {source_language} para {target_language}
-   2. Preserve todas as formatações (negrito, itálico, emojis)
-   3. Mantenha os mesmos parágrafos e quebras de linha
-   4. Preserve números, datas e nomes próprios
-   5. Não adicione ou remova informações
-   6. Não inclua notas ou explicações
-   7. Mantenha o mesmo nível de formalidade
-   
-   Texto para tradução:
-   {text}
-   """
-   
-   json_data = {
-       "messages": [{
-           "role": "system",
-           "content": "Você é um tradutor profissional que mantém o estilo e formatação do texto original."
-       }, {
-           "role": "user",
-           "content": prompt
-       }],
-       "model": "llama-3.3-70b-versatile",
-       "temperature": 0.3
-   }
+    prompt = f"""
+    Você é um tradutor profissional especializado em manter o tom e estilo do texto original.
+    
+    Instruções:
+    1. Traduza o texto de {source_language} para {target_language}
+    2. Preserve todas as formatações (negrito, itálico, emojis)
+    3. Mantenha os mesmos parágrafos e quebras de linha
+    4. Preserve números, datas e nomes próprios
+    5. Não adicione ou remova informações
+    6. Não inclua notas ou explicações
+    7. Mantenha o mesmo nível de formalidade
+    
+    Texto para tradução:
+    {text}
+    """
+    
+    json_data = {
+        "messages": [{
+            "role": "system",
+            "content": "Você é um tradutor profissional que mantém o estilo e formatação do texto original."
+        }, {
+            "role": "user",
+            "content": prompt
+        }],
+        "model": model,
+        "temperature": 0.3
+    }
 
-   try:
-       success, response_data, error = await handle_groq_request(url_completions, headers, json_data, storage, is_form_data=False)
-       if not success:
-           raise Exception(f"Falha na tradução: {error}")
-       
-       translated_text = response_data["choices"][0]["message"]["content"].strip()
-       
-       # Verificar se a tradução manteve aproximadamente o mesmo tamanho
-       length_ratio = len(translated_text) / len(text)
-       if not (0.5 <= length_ratio <= 1.5):
-           storage.add_log("WARNING", "Possível erro na tradução - diferença significativa no tamanho", {
-               "original_length": len(text),
-               "translated_length": len(translated_text),
-               "ratio": length_ratio
-           })
-       
-       # Validar se a tradução não está vazia
-       if not await validate_transcription_response(translated_text):
-           storage.add_log("ERROR", "Tradução vazia ou inválida recebida")
-           raise Exception("Tradução vazia ou inválida recebida")
-       
-       storage.add_log("INFO", "Tradução concluída com sucesso", {
-           "original_length": len(text),
-           "translated_length": len(translated_text),
-           "ratio": length_ratio
-       })
-       
-       return translated_text
+    try:
+        success, response_data, error = await handle_groq_request(url, headers, json_data, storage, is_form_data=False)
+        if not success:
+            raise Exception(f"Falha na tradução: {error}")
+        
+        translated_text = response_data["choices"][0]["message"]["content"].strip()
+        
+        # Verificar se a tradução manteve aproximadamente o mesmo tamanho
+        length_ratio = len(translated_text) / len(text)
+        if not (0.5 <= length_ratio <= 1.5):
+            storage.add_log("WARNING", "Possível erro na tradução - diferença significativa no tamanho", {
+                "original_length": len(text),
+                "translated_length": len(translated_text),
+                "ratio": length_ratio
+            })
+        
+        # Validar se a tradução não está vazia
+        if not await validate_transcription_response(translated_text):
+            storage.add_log("ERROR", "Tradução vazia ou inválida recebida")
+            raise Exception("Tradução vazia ou inválida recebida")
+        
+        storage.add_log("INFO", "Tradução concluída com sucesso", {
+            "original_length": len(text),
+            "translated_length": len(translated_text),
+            "ratio": length_ratio
+        })
+        
+        return translated_text
 
-   except Exception as e:
-       storage.add_log("ERROR", "Erro no processo de tradução", {
-           "error": str(e),
-           "type": type(e).__name__
-       })
-       raise
+    except Exception as e:
+        storage.add_log("ERROR", "Erro no processo de tradução", {
+            "error": str(e),
+            "type": type(e).__name__
+        })
+        raise
