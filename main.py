@@ -5,6 +5,7 @@ from services import (
     send_message_to_whatsapp,
     get_audio_base64,
     summarize_text_if_needed,
+    download_remote_audio,
 )
 from models import WebhookRequest
 from config import logger, settings, redis_client
@@ -151,17 +152,14 @@ async def transcreve_audios(request: Request):
         # Obter áudio
         try:
             if "mediaUrl" in body["data"]["message"]:
-                audio_source = body["data"]["message"]["mediaUrl"]
-                storage.add_log("DEBUG", "Usando mediaUrl para áudio", {
-                    "mediaUrl": audio_source
-                })
+                media_url = body["data"]["message"]["mediaUrl"]
+                storage.add_log("DEBUG", "Baixando áudio via URL", {"mediaUrl": media_url})
+                audio_source = await download_remote_audio(media_url)   # Baixa o arquivo remoto e retorna o caminho local
             else:
                 storage.add_log("DEBUG", "Obtendo áudio via base64")
                 base64_audio = await get_audio_base64(server_url, instance, apikey, audio_key)
                 audio_source = await convert_base64_to_file(base64_audio)
-                storage.add_log("DEBUG", "Áudio convertido", {
-                    "source": audio_source
-                })
+                storage.add_log("DEBUG", "Áudio convertido", {"source": audio_source})
 
             # Carregar configurações de formatação
             output_mode = get_config("output_mode", "both")

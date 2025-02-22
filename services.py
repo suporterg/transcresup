@@ -764,3 +764,24 @@ async def translate_text(text: str, source_language: str, target_language: str) 
             "type": type(e).__name__
         })
         raise
+
+# Nova função para baixar áudio remoto
+async def download_remote_audio(url: str) -> str:
+    """
+    Baixa um arquivo de áudio remoto e salva localmente como um arquivo temporário.
+    Retorna o caminho para o arquivo salvo.
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    audio_data = await response.read()
+                    # Cria um arquivo temporário para armazenar o áudio (pode ajustar o sufixo caso necessário)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                        temp_file.write(audio_data)
+                        local_path = temp_file.name
+                    return local_path
+                else:
+                    raise Exception(f"Falha no download, código de status: {response.status}")
+    except Exception as e:
+        raise Exception(f"Erro ao baixar áudio remoto: {str(e)}")
